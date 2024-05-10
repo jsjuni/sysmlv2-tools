@@ -1,2 +1,2 @@
-# sysmlv2-oml
-SysML v2 to OML mapping
+# sysmlv2-tools
+SysML v2 tools
