@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
+
 import org.slf4j.Logger;
 
 import com.beust.jcommander.JCommander;
@@ -41,7 +44,7 @@ public class App {
         return "Hello World!";
     }
 
-    public static void main(String[] args) throws CsvValidationException, FileNotFoundException, IOException {
+    public static void main(String[] args) throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
     	final App app = new App();
 		final JCommander builder = JCommander.newBuilder().addObject(app).build();
 		
