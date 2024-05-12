@@ -1,8 +1,10 @@
 package sysml2oml;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +14,13 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
@@ -36,6 +45,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
+import org.w3c.dom.Element;
 
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.exceptions.CsvValidationException;
@@ -45,6 +55,7 @@ import io.opencaesar.oml.util.OmlConstants;
 
 public class Taxonomy2Oml {
 	
+	protected final static String catalogStem = "catalog.xml";
 	protected final Logger logger;
 	protected final List<String> inputPaths;
 	protected final String outputPath;
@@ -52,6 +63,8 @@ public class Taxonomy2Oml {
 	
 	protected final Map<String, URI> iriByDeclName = new HashMap<>();
 	protected final Map<URI, String> outputFn = new HashMap<>();
+	protected final Map<URI, Node> packages = new HashMap<>();
+	protected final Map<String, String> catalogMap = new HashMap<>();
 	
 	protected final Map<String, Node> sbcById = new HashMap<>();
 	protected final Map<String, String> idByDn = new HashMap<>();
@@ -92,7 +105,6 @@ public class Taxonomy2Oml {
 		XPath xPath = XPathFactory.newInstance().newXPath();
 		String topPackageString = "Namespace/ownedRelationship[@type='sysml:OwningMembership']/ownedRelatedElement[@type='sysml:LibraryPackage']";
 		XPathExpression topPackageXPath = xPath.compile(topPackageString);
-		Map<String, Node> packages = new HashMap<>();
 
 		logger.info("load documents");
 		inputPaths.forEach(pathString -> {
@@ -129,6 +141,10 @@ public class Taxonomy2Oml {
 						logger.info("  output file path " + fn);
 						outputFn.put(iri, fn);
 						
+						packages.put(iri, doc);
+						
+						catalogMap.put(makeCatalogStartString(inputPath, filePath), makeCatalogRewritePrefix(inputPath, filePath));
+						
 					} catch (XPathExpressionException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -139,6 +155,13 @@ public class Taxonomy2Oml {
 				e.printStackTrace();
 			}
 		});
+		
+		logger.info(String.format("loaded %d documents", packages.size()));
+		
+		// Add default catalog rule.
+		catalogMap.put("http://",  "src/oml");
+		
+		createOutputCatalog(outputPath, catalogMap);
 		
 		OmlStandaloneSetup.doSetup();
 		
@@ -183,15 +206,90 @@ public class Taxonomy2Oml {
 		return "Hello World";
 	}
 	
+	private static Path trail(Path fp, Path sp) {
+		return Paths.get(fp.toString().replace(sp.toString(), ""));
+	}
+	
 	private static URI makeIri(String path, String stem) {
 		String p = path.replaceAll("\\A.*/sysml.library.xmi", "http://omg.org/SysML-v2");
 		return URI.createURI((p + "/" + stem).replaceAll("\\s+", "-"));
 	}
 	
 	private static String makeOutputFn(String op, Path sp, Path fp) {
-		Path trail = Paths.get(fp.toString().replace(sp.toString(), ""));
+		Path trail = trail(fp, sp);
 		String path = op + "/build/oml/omg.org/SysML-v2/" + trail.getParent().toString();
 		String stem = trail.getFileName().toString().replaceAll("\\..*$", ".oml");
 		return (path + "/" + stem).replaceAll("\\/+", "/");
+	}
+	
+	private static String makeCatalogStartString(Path sp, Path fp) {
+		Path trail = trail(fp, sp);
+		return "http://omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
+	}
+
+	private static String makeCatalogRewritePrefix(Path sp, Path fp) {
+		Path trail = trail(fp, sp);
+		return "build/omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
+	}
+	
+	private static void createOutputCatalog(String path, Map<String, String> map) {
+		(new File(path)).mkdirs();
+		
+		String fn = path + "/" + catalogStem;
+		FileWriter writer = null;
+		try {
+			writer = new FileWriter(fn);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder builder = null;
+		try {
+			builder = factory.newDocumentBuilder();
+		} catch (ParserConfigurationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		Document doc = builder.newDocument();
+		DOMSource source = new DOMSource(doc);
+		Element cat = (Element) doc.createElement("catalog");
+		cat.setAttribute("xmlns", "urn:oasis:names:tc:entity:xmlns:xml:catalog");
+		cat.setAttribute("prefer", "public");
+		doc.appendChild(cat);
+		
+		map.forEach((ss, rp) -> {
+			Element srw = doc.createElement("rewriteURI");
+			srw.setAttribute("uriStartString", ss);
+			srw.setAttribute("rewritePrefix", rp);
+			cat.appendChild(srw);
+		});
+		
+		TransformerFactory transformerFactory = TransformerFactory.newInstance();
+		Transformer transformer = null;
+		try {
+			transformer = transformerFactory.newTransformer();
+		} catch (TransformerConfigurationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+		transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+		StreamResult result = new StreamResult(writer);
+		try {
+			transformer.transform(source, result);
+		} catch (TransformerException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		try {
+			writer.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 }
