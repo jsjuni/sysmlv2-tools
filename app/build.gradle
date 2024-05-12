@@ -26,6 +26,8 @@ dependencies {
     implementation 'org.slf4j:slf4j-log4j12:1.7.3'
 	implementation 'com.beust:jcommander:1.72'
 	implementation 'com.opencsv:opencsv:5.9'
+	implementation 'org.jgrapht:jgrapht-core:1.5.2'
+	
 	implementation 'io.opencaesar.oml:io.opencaesar.oml.dsl:2.4.0'
 }
 

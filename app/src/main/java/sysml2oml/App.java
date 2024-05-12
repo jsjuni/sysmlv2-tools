@@ -27,6 +27,13 @@ public class App {
 	private static List<String> inputPaths = new ArrayList<>();
 
 	@Parameter(
+			names = { "--output-path", "-o" }, 
+			description = "Output path", 
+			required = true, 
+			order = 1)
+	private static String outputPath;
+
+	@Parameter(
 			names = { "--supertypes-map", "-m" }, 
 			description = "Path to search for input", 
 			required = true, 
@@ -56,7 +63,7 @@ public class App {
 		
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, map_file);
+		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, outputPath, map_file);
 		
         System.out.println(taxonomy2Oml.run());
     }
