@@ -6,9 +6,12 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -50,7 +53,9 @@ import org.w3c.dom.Element;
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.exceptions.CsvValidationException;
 
+import io.opencaesar.oml.OmlFactory;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
+import io.opencaesar.oml.util.OmlBuilder;
 import io.opencaesar.oml.util.OmlConstants;
 
 public class Taxonomy2Oml {
@@ -169,6 +174,39 @@ public class Taxonomy2Oml {
 		outputResourceSet.getLoadOptions().put(OmlConstants.RESOLVE_IRI_USING_RESOURCE_SET, true);
 		outputResourceSet.eAdapters().add(new ECrossReferenceAdapter());
 		
+		logger.info("create oml factory");
+		OmlFactory oml = OmlFactory.eINSTANCE;
+		
+		logger.info("create builder");
+		OmlBuilder omlBuilder = new OmlBuilder(outputResourceSet);
+		
+		logger.info("start builder");
+		omlBuilder.start();
+		
+		logger.info("create vocabularies");
+		
+		Set<URI> outputResourceUris = new HashSet<>();
+		packages.forEach((iri, pkg) -> {
+			URI uri = URI.createFileURI(outputFn.get(iri));
+			outputResourceUris.add(uri);
+			omlBuilder.createVocabulary(uri, iri.toString(), Paths.get(iri.toString()).getFileName().toString());
+		});
+		
+		logger.info("finish builder");
+		omlBuilder.finish();
+		
+		logger.info("save resources");
+		outputResourceUris.forEach(outputResourceUri -> {
+			logger.info("save " + outputResourceUri.toString());
+			Resource outputResource = outputResourceSet.getResource(outputResourceUri, false);
+			try {
+				outputResource.save(Collections.EMPTY_MAP);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		});
+		
 		/*
 		 * Build graph of taxonomy edges.
 		 */
@@ -217,7 +255,7 @@ public class Taxonomy2Oml {
 	
 	private static String makeOutputFn(String op, Path sp, Path fp) {
 		Path trail = trail(fp, sp);
-		String path = op + "/build/oml/omg.org/SysML-v2/" + trail.getParent().toString();
+		String path = op + "/omg.org/SysML-v2/" + trail.getParent().toString();
 		String stem = trail.getFileName().toString().replaceAll("\\..*$", ".oml");
 		return (path + "/" + stem).replaceAll("\\/+", "/");
 	}
@@ -229,7 +267,7 @@ public class Taxonomy2Oml {
 
 	private static String makeCatalogRewritePrefix(Path sp, Path fp) {
 		Path trail = trail(fp, sp);
-		return "build/omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
+		return "/omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
 	}
 	
 	private static void createOutputCatalog(String path, Map<String, String> map) {
