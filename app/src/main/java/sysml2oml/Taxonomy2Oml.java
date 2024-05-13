@@ -76,11 +76,11 @@ public class Taxonomy2Oml {
 	protected final Map<URI, Vocabulary> vocabularies = new HashMap<>();
 	protected final Map<String, String> catalogMap = new HashMap<>();
 	
-	protected final Map<String, Node> sbcById = new HashMap<>();
+	protected final Map<String, Map<String, String>> sbcById = new HashMap<>();
 	protected final Map<String, String> idByDn = new HashMap<>();
 	protected final Map<String, String> idByName = new HashMap<>();
 	
-	protected final DirectedAcyclicGraph<Node, DefaultEdge> sbcSuper = new DirectedAcyclicGraph<Node, DefaultEdge>(DefaultEdge.class);
+	protected final DirectedAcyclicGraph<String, DefaultEdge> sbcSuper = new DirectedAcyclicGraph<String, DefaultEdge>(DefaultEdge.class);
 	
 	/**
 	 * Constructs a new instance
@@ -125,8 +125,14 @@ public class Taxonomy2Oml {
 				.filter(Files::isRegularFile)
                 .filter(p -> pattern.matcher(p.getFileName().toString()).matches())
 				.forEach(filePath -> {
+					
 					logger.info("document file path " + filePath.toString());
 					String dirName = filePath.getParent().toString();
+
+					/*
+					 * Parse XMI document.
+					 */
+					
 					Document doc = null;
 					try {
 						doc = builder.parse(new FileInputStream(filePath.toString()));
@@ -136,6 +142,11 @@ public class Taxonomy2Oml {
 						e.printStackTrace();
 					}
 					try {
+						
+						/*
+						 * Find Library Package.
+						 */
+						
 						NodeList topNodes = (NodeList) topPackageXPath.evaluate(doc, XPathConstants.NODESET);
 						if (topNodes.getLength() == 0) {
 							logger.error("no library package found for " + filePath);
@@ -143,16 +154,33 @@ public class Taxonomy2Oml {
 						}
 						Node topPackage = topNodes.item(0);
 						NamedNodeMap topPackageAttributes = topPackage.getAttributes();
+						
+						/*
+						 * Construct vocabulary IRI and cache it.
+						 */
+						
 						String declaredName = topPackageAttributes.getNamedItem("declaredName").getNodeValue();
 						URI iri = makeIri(dirName, declaredName);
-						logger.info("  document iri " + iri);
 						iriByDeclName.put(declaredName, iri);
+						logger.info("  document iri " + iri);
+						
+						/*
+						 * Construct output filename and cache it.
+						 */
 						
 						String fn = makeOutputFn(outputPath, inputPath, filePath);
 						logger.info("  output file path " + fn);
 						outputFn.put(iri, fn);
 						
-						packages.put(iri, doc);
+						/*
+						 * Cache document by IRI.
+						 */
+						
+						packages.put(iri, topPackage);
+						
+						/*
+						 * Create catalog entry for this document.
+						 */
 						
 						catalogMap.put(makeCatalogStartString(inputPath, filePath), makeCatalogRewritePrefix(inputPath, filePath));
 						
@@ -168,11 +196,11 @@ public class Taxonomy2Oml {
 		});
 		logger.info(String.format("loaded %d documents", packages.size()));
 		
-		bundles.forEach(b -> {});
+		/*
+		 * Add default catalog rule and write catalog.
+		 */
 		
-		// Add default catalog rule.
 		catalogMap.put("http://",  "src/oml");
-		
 		createOutputCatalog(outputPath, catalogMap);
 		
 		OmlStandaloneSetup.doSetup();
@@ -199,6 +227,13 @@ public class Taxonomy2Oml {
 		packages.forEach((iri, pkg) -> {
 			URI uri = URI.createFileURI(outputFn.get(iri));
 			outputResourceUris.add(uri);
+			NamedNodeMap at = pkg.getAttributes();
+			Node packageNameNode = pkg.getAttributes().getNamedItem("declaredName");
+			String packageName = packageNameNode.getNodeValue();
+			
+			/*
+			 * Find elements that will become concepts.
+			 */
 			
 			XPathExpression ownedRelationshipXPath = null;
 			try {
@@ -218,6 +253,19 @@ public class Taxonomy2Oml {
 				Node sbc = sbcs.item(i);
 				NamedNodeMap sbcAttributes = sbc.getAttributes();
 				Node dnNode = sbcAttributes.getNamedItem("declaredName");
+				if (dnNode == null) continue;
+				String dn = dnNode.getNodeValue();
+				Node tpNode = sbcAttributes.getNamedItem("xsi:type");
+				if (dnNode.getNodeValue() == "sysml:Package");
+				Node idNode = sbcAttributes.getNamedItem("elementId");
+				String id = idNode.getNodeValue();
+				Map<String, String> m = new HashMap<>();
+				m.put("name", id);
+				m.put("iri", iri.toString());
+				sbcById.put(idNode.getNodeValue(), m);
+				idByDn.put(dn, id);
+				idByName.put(packageName, id);
+				sbcSuper.addVertex(id);
 			}
 
 			vocabularies.put(iri,
@@ -228,11 +276,13 @@ public class Taxonomy2Oml {
 			rdfsImport.setNamespace("http://www.w3.org/2000/01/rdf-schema#");
 			rdfsImport.setPrefix("rdfs");
 			rdfsImport.setOwningOntology(vocabularies.get(iri));
-		});
+			
+			/*
+			 * Add concept definitions.
+			 */
 		
-		/*
-		 * Add concept definitions.
-		 */
+			
+		});
 		
 		logger.info("finish builder");
 		omlBuilder.finish();
@@ -248,41 +298,7 @@ public class Taxonomy2Oml {
 				e.printStackTrace();
 			}
 		});
-		
-		/*
-		 * Build graph of taxonomy edges.
-		 */
-		
-		XPathExpression ownedRelationshipXPath = xPath.compile("ownedRelationship[@type='sysml:OwningMembership']/ownedRelatedElement");
-		packages.forEach((packageName, node) -> {
-			NodeList sbcs = null;
-			try {
-				sbcs = (NodeList) ownedRelationshipXPath.evaluate(node, XPathConstants.NODESET);
-			} catch (XPathExpressionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			for (int i = 0; i < sbcs.getLength(); i++) {
-				Node sbc = sbcs.item(i);
-				NamedNodeMap sbcAttributes = sbc.getAttributes();
-				Node dnNode = sbcAttributes.getNamedItem("declaredName");
-				if (dnNode != null) {
-					String dn = dnNode.getNodeValue();
-					String tp = sbcAttributes.getNamedItem("xsi:type").getNodeValue();
-					String id = sbcAttributes.getNamedItem("elementId").getNodeValue();
-					String name = packageName + "::" + dn;
-					
-					sbcById.put(id, sbc);
-					idByDn.put(dn, id);
-					idByName.put(name, id);
-					
-					sbcSuper.addVertex(sbc);
-					
-//					logger.info("class " + name + " type " + tp + " id " + id);
-				}
-			}
-		});
-		
+				
 		return "Hello World";
 	}
 	
