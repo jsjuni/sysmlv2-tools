@@ -268,6 +268,41 @@ public class Taxonomy2Oml {
 				sbcSuper.addVertex(id);
 			}
 
+			/*
+			 * Find  superclassifiers.
+			 */
+			
+			XPathExpression subclassification1XPath = null;
+			try {
+				subclassification1XPath = xPath.compile("//ownedRelationship[@type='sysml:Subclassification']/superclassifier[@href]/@href");
+			} catch (XPathExpressionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			NodeList supc1 = null;
+			try {
+				supc1 = (NodeList) subclassification1XPath.evaluate(pkg, XPathConstants.NODESET);
+			} catch (XPathExpressionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			logger.info(String.format("found %d superclassifiers w/ xpath 1", supc1.getLength()));
+			XPathExpression subclassification2XPath = null;
+			try {
+				subclassification2XPath = xPath.compile("//ownedRelationship[@type='sysml:Subclassification' and @superclassifier]/@superclassifier");
+			} catch (XPathExpressionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			NodeList supc2 = null;
+			try {
+				supc2 = (NodeList) subclassification2XPath.evaluate(pkg, XPathConstants.NODESET);
+			} catch (XPathExpressionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			logger.info(String.format("found %d superclassifiers w/ xpath 2", supc2.getLength()));
+
 			vocabularies.put(iri,
 					omlBuilder.createVocabulary(uri, iri.toString(), Paths.get(iri.toString()).getFileName().toString()));
 			
