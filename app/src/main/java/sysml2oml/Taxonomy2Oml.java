@@ -232,8 +232,6 @@ public class Taxonomy2Oml {
 		logger.info("create vocabularies");		
 		Set<URI> outputResourceUris = new HashSet<>();
 		packages.forEach((iri, pkg) -> {
-			URI uri = URI.createFileURI(outputFn.get(iri));
-			outputResourceUris.add(uri);
 			NamedNodeMap at = pkg.getAttributes();
 			Node packageNameNode = pkg.getAttributes().getNamedItem("declaredName");
 			String packageName = packageNameNode.getNodeValue();
@@ -269,11 +267,11 @@ public class Taxonomy2Oml {
 				Map<String, String> m = new HashMap<>();
 				m.put("name", dn);
 				m.put("iri", iri.toString());
-				sbcById.put(idNode.getNodeValue(), m);
+				sbcById.put(id, m);
 				idByDn.put(dn, id);
 				idByName.put(packageName, id);
 				sbcSuper.addVertex(id);
-				logger.info("concept " + dn + " id " + id);
+				logger.info("concept " + dn + " vocab iri " + iri + " id " + id);
 
 				/*
 				 * Find  superclass relations.
@@ -322,31 +320,36 @@ public class Taxonomy2Oml {
 
 			}
 			
-			vocabularies.put(iri,
-					omlBuilder.createVocabulary(uri, iri.toString(), Paths.get(iri.toString()).getFileName().toString()));
+		});
+		
+		packages.forEach((iri, pkg) -> {
+			URI uri = URI.createFileURI(outputFn.get(iri));
+			outputResourceUris.add(uri);
+			String namespace = iri.toString() + "#";
+			Vocabulary v = omlBuilder.createVocabulary(uri, namespace, Paths.get(iri.toString()).getFileName().toString());
+			vocabularies.put(iri,v);
 			
 			Import rdfsImport = oml.createImport();
 			rdfsImport.setKind(ImportKind.EXTENSION);
 			rdfsImport.setNamespace("http://www.w3.org/2000/01/rdf-schema#");
 			rdfsImport.setPrefix("rdfs");
-			rdfsImport.setOwningOntology(vocabularies.get(iri));
-			
-			/*
-			 * Add concept definitions.
-			 */
-		
-			sbcById.forEach((id, c) -> {
-				Ontology v = (Ontology) vocabularies.get(iri);
-				String cName = cleanIdentifier(c.get("name"));
-				Literal cLiteral = omlBuilder.createLiteral(c.get("name"));
-				Concept concept = omlBuilder.addConcept(vocabularies.get(iri), cName);
-				concepts.put(id, concept);
-				logger.info("concept " + cName + " label " + cLiteral.getLexicalValue() + " id " + id);
-//				omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
-			});
-			
+//			rdfsImport.setOwningOntology(vocabularies.get(iri));
 		});
 		
+		/*
+		 * Add concept definitions.
+		 */
+	
+		sbcById.forEach((id, c) -> {
+			Vocabulary v = vocabularies.get(URI.createURI(c.get("iri")));
+			String cName = cleanIdentifier(c.get("name"));
+			Literal cLiteral = omlBuilder.createLiteral(c.get("name"));
+			Concept concept = omlBuilder.addConcept(v, cName);
+			concepts.put(id, concept);
+			logger.info("concept " + cName + " label " + cLiteral.getLexicalValue() + " id " + id);
+//				omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
+		});
+			
 		/*
 		 * Add concept specialization axioms and extension axioms.
 		 */
@@ -355,7 +358,6 @@ public class Taxonomy2Oml {
 		sbcSuper.edgeSet().forEach(e -> {
 			Concept subC = concepts.get(sbcSuper.getEdgeSource(e));
 			Concept supC = concepts.get(sbcSuper.getEdgeTarget(e));
-			logger.info("source " + sbcSuper.getEdgeSource(e) + " target " + sbcSuper.getEdgeTarget(e));
 			if (supC != null) {
 				SpecializationAxiom spAxiom = oml.createSpecializationAxiom();
 				spAxiom.setOwningTerm(subC);
@@ -364,7 +366,13 @@ public class Taxonomy2Oml {
 				String subPrefix = subVocab.getPrefix();
 				Vocabulary supVocab = supC.getOwningVocabulary();
 				String supPrefix = supVocab.getPrefix();
+//				omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
 				logger.info("concept " + subPrefix + ":" + subC.getName() + " :> " + supPrefix + ":" + supC.getName());
+				if (!imported.containsKey(subVocab)) imported.put(subVocab, new HashSet<Vocabulary>());
+				if (subVocab != supVocab && !imported.get(subVocab).contains(supVocab)) {
+					omlBuilder.addImport(subVocab, ImportKind.EXTENSION, supVocab.getIri() + "#", supPrefix);
+					imported.get(subVocab).add(supVocab);
+				}
 			}
 		});
 			  			
