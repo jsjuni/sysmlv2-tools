@@ -27,6 +27,13 @@ public class App {
 	private static List<String> inputPaths = new ArrayList<>();
 
 	@Parameter(
+			names = { "--bundle", "-b" }, 
+			description = "Bundle", 
+			required = false, 
+			order = 1)
+	private static List<String> bundles = new ArrayList<>();
+
+	@Parameter(
 			names = { "--output-path", "-o" }, 
 			description = "Output path", 
 			required = true, 
@@ -63,7 +70,7 @@ public class App {
 		
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, outputPath, map_file);
+		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, bundles, outputPath, map_file);
 		
         System.out.println(taxonomy2Oml.run());
     }

@@ -53,7 +53,10 @@ import org.w3c.dom.Element;
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.exceptions.CsvValidationException;
 
+import io.opencaesar.oml.Import;
+import io.opencaesar.oml.ImportKind;
 import io.opencaesar.oml.OmlFactory;
+import io.opencaesar.oml.Vocabulary;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
 import io.opencaesar.oml.util.OmlBuilder;
 import io.opencaesar.oml.util.OmlConstants;
@@ -63,12 +66,14 @@ public class Taxonomy2Oml {
 	protected final static String catalogStem = "catalog.xml";
 	protected final Logger logger;
 	protected final List<String> inputPaths;
+	protected final List<String> bundles;
 	protected final String outputPath;
 	protected final String map_file;
 	
 	protected final Map<String, URI> iriByDeclName = new HashMap<>();
 	protected final Map<URI, String> outputFn = new HashMap<>();
 	protected final Map<URI, Node> packages = new HashMap<>();
+	protected final Map<URI, Vocabulary> vocabularies = new HashMap<>();
 	protected final Map<String, String> catalogMap = new HashMap<>();
 	
 	protected final Map<String, Node> sbcById = new HashMap<>();
@@ -81,9 +86,10 @@ public class Taxonomy2Oml {
 	 * Constructs a new instance
 	 * 
 	 */
-	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String outputPath, String map_file) {
+	public Taxonomy2Oml(Logger logger, List<String> inputPaths, List<String> bundles, String outputPath, String map_file) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
+		this.bundles = bundles;
 		this.outputPath = outputPath;
 		this.map_file = map_file;
 	}
@@ -160,8 +166,9 @@ public class Taxonomy2Oml {
 				e.printStackTrace();
 			}
 		});
-		
 		logger.info(String.format("loaded %d documents", packages.size()));
+		
+		bundles.forEach(b -> {});
 		
 		// Add default catalog rule.
 		catalogMap.put("http://",  "src/oml");
@@ -183,14 +190,49 @@ public class Taxonomy2Oml {
 		logger.info("start builder");
 		omlBuilder.start();
 		
-		logger.info("create vocabularies");
+		/*
+		 * Create vocabularies.
+		 */
 		
+		logger.info("create vocabularies");		
 		Set<URI> outputResourceUris = new HashSet<>();
 		packages.forEach((iri, pkg) -> {
 			URI uri = URI.createFileURI(outputFn.get(iri));
 			outputResourceUris.add(uri);
-			omlBuilder.createVocabulary(uri, iri.toString(), Paths.get(iri.toString()).getFileName().toString());
+			
+			XPathExpression ownedRelationshipXPath = null;
+			try {
+				ownedRelationshipXPath = xPath.compile("ownedRelationship[@type='sysml:OwningMembership']/ownedRelatedElement");
+			} catch (XPathExpressionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			NodeList sbcs = null;
+			try {
+				sbcs = (NodeList) ownedRelationshipXPath.evaluate(pkg, XPathConstants.NODESET);
+			} catch (XPathExpressionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			for (int i = 0; i < sbcs.getLength(); i++) {
+				Node sbc = sbcs.item(i);
+				NamedNodeMap sbcAttributes = sbc.getAttributes();
+				Node dnNode = sbcAttributes.getNamedItem("declaredName");
+			}
+
+			vocabularies.put(iri,
+					omlBuilder.createVocabulary(uri, iri.toString(), Paths.get(iri.toString()).getFileName().toString()));
+			
+			Import rdfsImport = oml.createImport();
+			rdfsImport.setKind(ImportKind.EXTENSION);
+			rdfsImport.setNamespace("http://www.w3.org/2000/01/rdf-schema#");
+			rdfsImport.setPrefix("rdfs");
+			rdfsImport.setOwningOntology(vocabularies.get(iri));
 		});
+		
+		/*
+		 * Add concept definitions.
+		 */
 		
 		logger.info("finish builder");
 		omlBuilder.finish();
