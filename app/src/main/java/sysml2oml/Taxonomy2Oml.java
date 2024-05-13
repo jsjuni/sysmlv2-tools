@@ -42,6 +42,7 @@ import org.eclipse.emf.ecore.util.ECrossReferenceAdapter;
 
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedAcyclicGraph;
+import org.jgrapht.graph.SimpleDirectedGraph;
 import org.slf4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
@@ -53,9 +54,14 @@ import org.w3c.dom.Element;
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.exceptions.CsvValidationException;
 
+import io.github.novacrypto.base58.Base58;
+import io.opencaesar.oml.Concept;
 import io.opencaesar.oml.Import;
 import io.opencaesar.oml.ImportKind;
+import io.opencaesar.oml.Literal;
 import io.opencaesar.oml.OmlFactory;
+import io.opencaesar.oml.Ontology;
+import io.opencaesar.oml.SpecializationAxiom;
 import io.opencaesar.oml.Vocabulary;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
 import io.opencaesar.oml.util.OmlBuilder;
@@ -74,13 +80,14 @@ public class Taxonomy2Oml {
 	protected final Map<URI, String> outputFn = new HashMap<>();
 	protected final Map<URI, Node> packages = new HashMap<>();
 	protected final Map<URI, Vocabulary> vocabularies = new HashMap<>();
+	protected final Map<String, Concept> concepts = new HashMap<>();
 	protected final Map<String, String> catalogMap = new HashMap<>();
 	
 	protected final Map<String, Map<String, String>> sbcById = new HashMap<>();
 	protected final Map<String, String> idByDn = new HashMap<>();
 	protected final Map<String, String> idByName = new HashMap<>();
 	
-	protected final DirectedAcyclicGraph<String, DefaultEdge> sbcSuper = new DirectedAcyclicGraph<String, DefaultEdge>(DefaultEdge.class);
+	protected final SimpleDirectedGraph<String, DefaultEdge> sbcSuper = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 	
 	/**
 	 * Constructs a new instance
@@ -256,53 +263,65 @@ public class Taxonomy2Oml {
 				if (dnNode == null) continue;
 				String dn = dnNode.getNodeValue();
 				Node tpNode = sbcAttributes.getNamedItem("xsi:type");
-				if (dnNode.getNodeValue() == "sysml:Package");
+				if (tpNode.getNodeValue() == "sysml:Package") continue;
 				Node idNode = sbcAttributes.getNamedItem("elementId");
 				String id = idNode.getNodeValue();
 				Map<String, String> m = new HashMap<>();
-				m.put("name", id);
+				m.put("name", dn);
 				m.put("iri", iri.toString());
 				sbcById.put(idNode.getNodeValue(), m);
 				idByDn.put(dn, id);
 				idByName.put(packageName, id);
 				sbcSuper.addVertex(id);
-			}
+				logger.info("concept " + dn + " id " + id);
 
-			/*
-			 * Find  superclassifiers.
-			 */
+				/*
+				 * Find  superclass relations.
+				 */
+				
+				XPathExpression subclassification1XPath = null;
+				try {
+					subclassification1XPath = xPath.compile("ownedRelationship[@type='sysml:Subclassification']/superclassifier[@href]/@href");
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				NodeList supc1 = null;
+				try {
+					supc1 = (NodeList) subclassification1XPath.evaluate(sbc, XPathConstants.NODESET);
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				for (int j = 0; j < supc1.getLength(); j++) {
+					String sup_id = supc1.item(j).getTextContent().replaceAll("\\A.*#", "");
+					sbcSuper.addVertex(sup_id);
+					sbcSuper.addEdge(id, sup_id);
+					logger.info("specialization " + id + " :> " + sup_id);
+				}
+				XPathExpression subclassification2XPath = null;
+				try {
+					subclassification2XPath = xPath.compile("ownedRelationship[@type='sysml:Subclassification' and @superclassifier]/@superclassifier");
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				NodeList supc2 = null;
+				try {
+					supc2 = (NodeList) subclassification2XPath.evaluate(sbc, XPathConstants.NODESET);
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				for (int j = 0; j < supc2.getLength(); j++) {
+					String sup_id = supc2.item(j).getTextContent().replaceAll("\\A.*#", "");
+					sbcSuper.addVertex(sup_id);
+//					sbcSuper.addEdge(id, sup_id);
+					logger.info("specialization " + id + " :> " + sup_id);
+				}
+
+			}
 			
-			XPathExpression subclassification1XPath = null;
-			try {
-				subclassification1XPath = xPath.compile("//ownedRelationship[@type='sysml:Subclassification']/superclassifier[@href]/@href");
-			} catch (XPathExpressionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			NodeList supc1 = null;
-			try {
-				supc1 = (NodeList) subclassification1XPath.evaluate(pkg, XPathConstants.NODESET);
-			} catch (XPathExpressionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			logger.info(String.format("found %d superclassifiers w/ xpath 1", supc1.getLength()));
-			XPathExpression subclassification2XPath = null;
-			try {
-				subclassification2XPath = xPath.compile("//ownedRelationship[@type='sysml:Subclassification' and @superclassifier]/@superclassifier");
-			} catch (XPathExpressionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			NodeList supc2 = null;
-			try {
-				supc2 = (NodeList) subclassification2XPath.evaluate(pkg, XPathConstants.NODESET);
-			} catch (XPathExpressionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			logger.info(String.format("found %d superclassifiers w/ xpath 2", supc2.getLength()));
-
 			vocabularies.put(iri,
 					omlBuilder.createVocabulary(uri, iri.toString(), Paths.get(iri.toString()).getFileName().toString()));
 			
@@ -316,9 +335,39 @@ public class Taxonomy2Oml {
 			 * Add concept definitions.
 			 */
 		
+			sbcById.forEach((id, c) -> {
+				Ontology v = (Ontology) vocabularies.get(iri);
+				String cName = cleanIdentifier(c.get("name"));
+				Literal cLiteral = omlBuilder.createLiteral(c.get("name"));
+				Concept concept = omlBuilder.addConcept(vocabularies.get(iri), cName);
+				concepts.put(id, concept);
+				logger.info("concept " + cName + " label " + cLiteral.getLexicalValue() + " id " + id);
+//				omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
+			});
 			
 		});
 		
+		/*
+		 * Add concept specialization axioms and extension axioms.
+		 */
+
+		Map<Vocabulary, Set<Vocabulary>> imported = new HashMap<>();
+		sbcSuper.edgeSet().forEach(e -> {
+			Concept subC = concepts.get(sbcSuper.getEdgeSource(e));
+			Concept supC = concepts.get(sbcSuper.getEdgeTarget(e));
+			logger.info("source " + sbcSuper.getEdgeSource(e) + " target " + sbcSuper.getEdgeTarget(e));
+			if (supC != null) {
+				SpecializationAxiom spAxiom = oml.createSpecializationAxiom();
+				spAxiom.setOwningTerm(subC);
+				spAxiom.setSuperTerm(supC);
+				Vocabulary subVocab = subC.getOwningVocabulary();
+				String subPrefix = subVocab.getPrefix();
+				Vocabulary supVocab = supC.getOwningVocabulary();
+				String supPrefix = supVocab.getPrefix();
+				logger.info("concept " + subPrefix + ":" + subC.getName() + " :> " + supPrefix + ":" + supC.getName());
+			}
+		});
+			  			
 		logger.info("finish builder");
 		omlBuilder.finish();
 		
@@ -422,5 +471,9 @@ public class Taxonomy2Oml {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+	private static String cleanIdentifier(String id) {
+		return "Concept_" + Base58.base58Encode(id.getBytes());
 	}
 }

@@ -27,8 +27,8 @@ dependencies {
 	implementation 'com.beust:jcommander:1.72'
 	implementation 'com.opencsv:opencsv:5.9'
 	implementation 'org.jgrapht:jgrapht-core:1.5.2'
-	
-	implementation 'io.opencaesar.oml:io.opencaesar.oml.dsl:2.4.0'
+	implementation 'io.github.novacrypto:Base58:2022.01.17@jar'
+	implementation 'io.opencaesar.oml:io.opencaesar.oml.dsl:2.6.0'
 }
 
 application {
