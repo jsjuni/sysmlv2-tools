@@ -41,7 +41,6 @@ import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.ECrossReferenceAdapter;
 
 import org.jgrapht.graph.DefaultEdge;
-import org.jgrapht.graph.DirectedAcyclicGraph;
 import org.jgrapht.graph.SimpleDirectedGraph;
 import org.slf4j.Logger;
 import org.w3c.dom.Document;
@@ -60,7 +59,6 @@ import io.opencaesar.oml.Import;
 import io.opencaesar.oml.ImportKind;
 import io.opencaesar.oml.Literal;
 import io.opencaesar.oml.OmlFactory;
-import io.opencaesar.oml.Ontology;
 import io.opencaesar.oml.SpecializationAxiom;
 import io.opencaesar.oml.Vocabulary;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
@@ -314,7 +312,7 @@ public class Taxonomy2Oml {
 				for (int j = 0; j < supc2.getLength(); j++) {
 					String sup_id = supc2.item(j).getTextContent().replaceAll("\\A.*#", "");
 					sbcSuper.addVertex(sup_id);
-//					sbcSuper.addEdge(id, sup_id);
+					sbcSuper.addEdge(id, sup_id);
 					logger.info("specialization " + id + " :> " + sup_id);
 				}
 
@@ -333,7 +331,7 @@ public class Taxonomy2Oml {
 			rdfsImport.setKind(ImportKind.EXTENSION);
 			rdfsImport.setNamespace("http://www.w3.org/2000/01/rdf-schema#");
 			rdfsImport.setPrefix("rdfs");
-//			rdfsImport.setOwningOntology(vocabularies.get(iri));
+			rdfsImport.setOwningOntology(vocabularies.get(iri));
 		});
 		
 		/*
@@ -347,7 +345,7 @@ public class Taxonomy2Oml {
 			Concept concept = omlBuilder.addConcept(v, cName);
 			concepts.put(id, concept);
 			logger.info("concept " + cName + " label " + cLiteral.getLexicalValue() + " id " + id);
-//				omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
+//			omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
 		});
 			
 		/*
@@ -359,14 +357,11 @@ public class Taxonomy2Oml {
 			Concept subC = concepts.get(sbcSuper.getEdgeSource(e));
 			Concept supC = concepts.get(sbcSuper.getEdgeTarget(e));
 			if (supC != null) {
-				SpecializationAxiom spAxiom = oml.createSpecializationAxiom();
-				spAxiom.setOwningTerm(subC);
-				spAxiom.setSuperTerm(supC);
 				Vocabulary subVocab = subC.getOwningVocabulary();
 				String subPrefix = subVocab.getPrefix();
 				Vocabulary supVocab = supC.getOwningVocabulary();
 				String supPrefix = supVocab.getPrefix();
-//				omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
+				omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
 				logger.info("concept " + subPrefix + ":" + subC.getName() + " :> " + supPrefix + ":" + supC.getName());
 				if (!imported.containsKey(subVocab)) imported.put(subVocab, new HashSet<Vocabulary>());
 				if (subVocab != supVocab && !imported.get(subVocab).contains(supVocab)) {
