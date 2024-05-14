@@ -63,15 +63,18 @@ import io.opencaesar.oml.Vocabulary;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
 import io.opencaesar.oml.util.OmlBuilder;
 import io.opencaesar.oml.util.OmlConstants;
+import io.opencaesar.oml.util.OmlRead;
 
 public class Taxonomy2Oml {
 	
 	protected final static String catalogStem = "catalog.xml";
 	protected final Logger logger;
 	protected final List<String> inputPaths;
+	protected final String coreVocabsPath;
 	protected final String bundle;
 	protected final String outputPath;
 	protected final String mapFile;
+	protected final String catalogPath;
 	
 	protected final Map<String, URI> iriByDeclName = new HashMap<>();
 	protected final Map<URI, String> outputFn = new HashMap<>();
@@ -83,6 +86,7 @@ public class Taxonomy2Oml {
 	protected final Map<String, Map<String, String>> sbcById = new HashMap<>();
 	protected final Map<String, String> idByDn = new HashMap<>();
 	protected final Map<String, String> idByName = new HashMap<>();
+	protected final Map<Concept, String> dnByConcept = new HashMap<>();
 	
 	protected final SimpleDirectedGraph<String, DefaultEdge> sbcSuper = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 	
@@ -90,12 +94,14 @@ public class Taxonomy2Oml {
 	 * Constructs a new instance
 	 * 
 	 */
-	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String bundle, String outputPath, String mapFile, String catalogPath) {
+	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, String mapFile, String catalogPath) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
+		this.coreVocabsPath = coreVocabsPath;
 		this.bundle = bundle;
 		this.outputPath = outputPath;
 		this.mapFile = mapFile;
+		this.catalogPath = catalogPath;
 	}
 	
 	public void run() throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
@@ -205,7 +211,7 @@ public class Taxonomy2Oml {
 		 */
 		
 		catalogMap.put("http://",  "src/oml");
-		createOutputCatalog(outputPath, catalogMap);
+		if (catalogPath != null) createOutputCatalog(catalogPath, catalogMap);
 		
 		OmlStandaloneSetup.doSetup();
 		
@@ -222,6 +228,27 @@ public class Taxonomy2Oml {
 		logger.info("start builder");
 		omlBuilder.start();
 		
+		/*
+		 * Load core vocabularies.
+		 */
+		
+		Pattern omlPattern = Pattern.compile(".*\\.oml");
+		try {
+			Path vocabsPath = Paths.get(coreVocabsPath);
+			Files.walk(vocabsPath)
+			.filter(Files::isRegularFile)
+            .filter(p -> omlPattern.matcher(p.getFileName().toString()).matches())
+			.forEach(filePath -> {
+				logger.info("core vocabulary file path " + filePath.toString());
+				final URI ontologyUri = URI.createFileURI(filePath.toAbsolutePath().toString());
+				OmlRead.getOntology(outputResourceSet.getResource(ontologyUri, true));
+			});
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+				
 		/*
 		 * Create vocabularies.
 		 */
@@ -343,7 +370,8 @@ public class Taxonomy2Oml {
 			Concept concept = omlBuilder.addConcept(v, cName);
 			concepts.put(id, concept);
 			logger.info("concept " + cName + " label " + cLiteral.getLexicalValue() + " id " + id);
-//			omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
+			omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
+			dnByConcept.put(concept, c.get("name"));
 		});
 			
 		/*
@@ -352,15 +380,24 @@ public class Taxonomy2Oml {
 
 		Map<Vocabulary, Set<Vocabulary>> imported = new HashMap<>();
 		sbcSuper.edgeSet().forEach(e -> {
-			Concept subC = concepts.get(sbcSuper.getEdgeSource(e));
-			Concept supC = concepts.get(sbcSuper.getEdgeTarget(e));
+			String es = sbcSuper.getEdgeSource(e);
+			String et = sbcSuper.getEdgeTarget(e);
+			Concept subC = concepts.get(es);
+			Concept supC = concepts.get(et);
 			if (supC != null) {
 				Vocabulary subVocab = subC.getOwningVocabulary();
 				String subPrefix = subVocab.getPrefix();
 				Vocabulary supVocab = supC.getOwningVocabulary();
 				String supPrefix = supVocab.getPrefix();
+				
 				omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
+				
+				String superName = (subPrefix == supPrefix ? "" : supPrefix + ":") + dnByConcept.get(supC);
+				omlBuilder.addAnnotation(subVocab, subC, "http://www.w3.org/2000/01/rdf-schema#comment",
+						omlBuilder.createLiteral("specializes " + superName), null);
+				
 				logger.info("concept " + subPrefix + ":" + subC.getName() + " :> " + supPrefix + ":" + supC.getName());
+				
 				if (!imported.containsKey(subVocab)) imported.put(subVocab, new HashSet<Vocabulary>());
 				if (subVocab != supVocab && !imported.get(subVocab).contains(supVocab)) {
 					omlBuilder.addImport(subVocab, ImportKind.EXTENSION, supVocab.getIri() + "#", supPrefix);
@@ -384,6 +421,7 @@ public class Taxonomy2Oml {
 			}
 		});
 				
+		logger.info("done");
 	}
 	
 	private static Path trail(Path fp, Path sp) {

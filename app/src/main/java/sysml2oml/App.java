@@ -27,6 +27,13 @@ public class App {
 	private static List<String> inputPaths = new ArrayList<>();
 
 	@Parameter(
+			names = { "--core-vocabularies-path", "-v" }, 
+			description = "Path for core vocabularies", 
+			required = true, 
+			order = 1)
+	private static String coreVocabsPath;
+
+	@Parameter(
 			names = { "--bundle", "-b" }, 
 			description = "Path for bundle", 
 			required = false, 
@@ -73,7 +80,7 @@ public class App {
 		
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, bundle, outputPath, mapFile, catalogPath);
+		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundle, outputPath, mapFile, catalogPath);
 		
         taxonomy2Oml.run();
     }
