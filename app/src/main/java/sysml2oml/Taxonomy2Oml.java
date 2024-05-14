@@ -230,7 +230,6 @@ public class Taxonomy2Oml {
 		logger.info("create vocabularies");		
 		Set<URI> outputResourceUris = new HashSet<>();
 		packages.forEach((iri, pkg) -> {
-			NamedNodeMap at = pkg.getAttributes();
 			Node packageNameNode = pkg.getAttributes().getNamedItem("declaredName");
 			String packageName = packageNameNode.getNodeValue();
 			
