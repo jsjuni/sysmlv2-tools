@@ -284,7 +284,8 @@ public class Taxonomy2Oml {
 				if (dnNode == null) continue;
 				String dn = dnNode.getNodeValue();
 				Node tpNode = sbcAttributes.getNamedItem("xsi:type");
-				if (tpNode.getNodeValue() == "sysml:Package") continue;
+				String tp = tpNode.getNodeValue();
+				if (tp == "sysml:Package") continue;
 				Node idNode = sbcAttributes.getNamedItem("elementId");
 				String id = idNode.getNodeValue();
 				Map<String, String> m = new HashMap<>();
@@ -294,7 +295,7 @@ public class Taxonomy2Oml {
 				idByDn.put(dn, id);
 				idByName.put(packageName, id);
 				sbcSuper.addVertex(id);
-				logger.info("concept " + dn + " vocab iri " + iri + " id " + id);
+				logger.info("concept " + dn + "type " + tp + " vocab-iri " + iri + " id " + id);
 
 				/*
 				 * Find  superclass relations.
