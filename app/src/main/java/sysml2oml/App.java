@@ -48,7 +48,14 @@ public class App {
 	private static String outputPath;
 
 	@Parameter(
-			names = { "--supertypes-map", "-m" }, 
+			names = { "--metaclass", "-m" }, 
+			description = "Metaclass to map to concept", 
+			required = true, 
+			order = 1)
+	private static List<String> metaclasses = new ArrayList<>();
+
+	@Parameter(
+			names = { "--supertypes-map", "-s" }, 
 			description = "Path to search for input", 
 			required = true, 
 			order = 1)
@@ -80,7 +87,7 @@ public class App {
 		
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundle, outputPath, mapFile, catalogPath);
+		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundle, outputPath, metaclasses, mapFile, catalogPath);
 		
         taxonomy2Oml.run();
     }

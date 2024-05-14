@@ -73,6 +73,7 @@ public class Taxonomy2Oml {
 	protected final String coreVocabsPath;
 	protected final String bundle;
 	protected final String outputPath;
+	protected final List<String> metaclasses;
 	protected final String mapFile;
 	protected final String catalogPath;
 	
@@ -94,12 +95,13 @@ public class Taxonomy2Oml {
 	 * Constructs a new instance
 	 * 
 	 */
-	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, String mapFile, String catalogPath) {
+	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, List<String> metaclasses, String mapFile, String catalogPath) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
 		this.coreVocabsPath = coreVocabsPath;
 		this.bundle = bundle;
 		this.outputPath = outputPath;
+		this.metaclasses = metaclasses;
 		this.mapFile = mapFile;
 		this.catalogPath = catalogPath;
 	}
@@ -280,12 +282,15 @@ public class Taxonomy2Oml {
 			for (int i = 0; i < sbcs.getLength(); i++) {
 				Node sbc = sbcs.item(i);
 				NamedNodeMap sbcAttributes = sbc.getAttributes();
+				
 				Node dnNode = sbcAttributes.getNamedItem("declaredName");
 				if (dnNode == null) continue;
 				String dn = dnNode.getNodeValue();
+				
 				Node tpNode = sbcAttributes.getNamedItem("xsi:type");
 				String tp = tpNode.getNodeValue();
-				if (tp == "sysml:Package") continue;
+				if (!metaclasses.contains(tp)) continue;
+				
 				Node idNode = sbcAttributes.getNamedItem("elementId");
 				String id = idNode.getNodeValue();
 				Map<String, String> m = new HashMap<>();
@@ -295,7 +300,7 @@ public class Taxonomy2Oml {
 				idByDn.put(dn, id);
 				idByName.put(packageName, id);
 				sbcSuper.addVertex(id);
-				logger.info("concept " + dn + "type " + tp + " vocab-iri " + iri + " id " + id);
+				logger.info("concept " + dn + " type " + tp + " vocab-iri " + iri + " id " + id);
 
 				/*
 				 * Find  superclass relations.
