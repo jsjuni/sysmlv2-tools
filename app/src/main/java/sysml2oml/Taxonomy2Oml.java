@@ -59,7 +59,6 @@ import io.opencaesar.oml.Import;
 import io.opencaesar.oml.ImportKind;
 import io.opencaesar.oml.Literal;
 import io.opencaesar.oml.OmlFactory;
-import io.opencaesar.oml.SpecializationAxiom;
 import io.opencaesar.oml.Vocabulary;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
 import io.opencaesar.oml.util.OmlBuilder;
@@ -70,9 +69,9 @@ public class Taxonomy2Oml {
 	protected final static String catalogStem = "catalog.xml";
 	protected final Logger logger;
 	protected final List<String> inputPaths;
-	protected final List<String> bundles;
+	protected final String bundle;
 	protected final String outputPath;
-	protected final String map_file;
+	protected final String mapFile;
 	
 	protected final Map<String, URI> iriByDeclName = new HashMap<>();
 	protected final Map<URI, String> outputFn = new HashMap<>();
@@ -91,22 +90,22 @@ public class Taxonomy2Oml {
 	 * Constructs a new instance
 	 * 
 	 */
-	public Taxonomy2Oml(Logger logger, List<String> inputPaths, List<String> bundles, String outputPath, String map_file) {
+	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String bundle, String outputPath, String mapFile, String catalogPath) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
-		this.bundles = bundles;
+		this.bundle = bundle;
 		this.outputPath = outputPath;
-		this.map_file = map_file;
+		this.mapFile = mapFile;
 	}
 	
-	public String run() throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
+	public void run() throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
 		
 		/*
 		 * Load implicit supertypes map.
 		 */
 		
 		@SuppressWarnings("resource")
-		Map<String, String> values = new CSVReaderHeaderAware(new FileReader(map_file)).readMap();
+		Map<String, String> values = new CSVReaderHeaderAware(new FileReader(mapFile)).readMap();
 		Map<String, String> st_map = new HashMap<>();
 		values.forEach((v1, v2) -> {
 			st_map.put(v1, v2);
@@ -385,7 +384,6 @@ public class Taxonomy2Oml {
 			}
 		});
 				
-		return "Hello World";
 	}
 	
 	private static Path trail(Path fp, Path sp) {

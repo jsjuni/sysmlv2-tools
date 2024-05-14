@@ -28,10 +28,10 @@ public class App {
 
 	@Parameter(
 			names = { "--bundle", "-b" }, 
-			description = "Bundle", 
+			description = "Path for bundle", 
 			required = false, 
 			order = 1)
-	private static List<String> bundles = new ArrayList<>();
+	private static String bundle;
 
 	@Parameter(
 			names = { "--output-path", "-o" }, 
@@ -45,7 +45,14 @@ public class App {
 			description = "Path to search for input", 
 			required = true, 
 			order = 1)
-	private static String map_file;
+	private static String mapFile;
+
+	@Parameter(
+			names = { "--catalog-path", "-c" }, 
+			description = "File path for output catalog", 
+			required = false, 
+			order = 1)
+	private static String catalogPath;
 
 	@Parameter(
 			names = { "--help", "-h" },
@@ -53,10 +60,6 @@ public class App {
 			help = true,
 			order = 7)
 	private boolean help;
-
-	public String getGreeting() {
-        return "Hello World!";
-    }
 
     public static void main(String[] args) throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
     	final App app = new App();
@@ -70,8 +73,8 @@ public class App {
 		
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, bundles, outputPath, map_file);
+		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, bundle, outputPath, mapFile, catalogPath);
 		
-        System.out.println(taxonomy2Oml.run());
+        taxonomy2Oml.run();
     }
 }
