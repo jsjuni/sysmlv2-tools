@@ -389,8 +389,8 @@ public class Taxonomy2Oml {
 				}
 				for (int j = 0; j < djc2.getLength(); j++) {
 					String djId = djc2.item(j).getTextContent().replaceAll("\\A.*#", "");
-					sbcSuper.addVertex(djId);
-					sbcSuper.addEdge(id, djId);
+					djClass.addVertex(djId);
+					djClass.addEdge(id, djId);
 					logger.info("disjoining " + id + " " + djId);
 				}
 
@@ -432,6 +432,7 @@ public class Taxonomy2Oml {
 		 */
 
 		Map<Vocabulary, Set<Vocabulary>> imported = new HashMap<>();
+
 		sbcSuper.edgeSet().forEach(e -> {
 			String es = sbcSuper.getEdgeSource(e);
 			String et = sbcSuper.getEdgeTarget(e);
@@ -459,6 +460,31 @@ public class Taxonomy2Oml {
 			}
 		});
 			  			
+		/*
+		 * Add annotations for disjointness.
+		 */
+
+		djClass.edgeSet().forEach(e -> {
+			String es = djClass.getEdgeSource(e);
+			String et = djClass.getEdgeTarget(e);
+			Concept dj1 = concepts.get(es);
+			Concept dj2 = concepts.get(et);
+			if (dj2 != null) {
+				Vocabulary dj1Vocab = dj1.getOwningVocabulary();
+				String dj1Prefix = dj1Vocab.getPrefix();
+				Vocabulary dj2Vocab = dj2.getOwningVocabulary();
+				String dj2Prefix = dj2Vocab.getPrefix();
+				
+				String dj2Name = (dj1Prefix == dj2Prefix ? "" : dj2Prefix + ":") + dnByConcept.get(dj2);
+				omlBuilder.addAnnotation(dj1Vocab, dj1, "http://www.w3.org/2000/01/rdf-schema#comment",
+						omlBuilder.createLiteral("disjoint from " + dj2Name), null);				
+			}
+		});
+		
+		/*
+		 * Write output.
+		 */
+		
 		logger.info("finish builder");
 		omlBuilder.finish();
 		
