@@ -308,42 +308,25 @@ public class Taxonomy2Oml {
 				 * Find  superclass relations.
 				 */
 				
-				XPathExpression subclassification1XPath = null;
+				XPathExpression subclassificationXPath = null;
 				try {
-					subclassification1XPath = xPath.compile("ownedRelationship[@type='sysml:Subclassification']/superclassifier[@href]/@href");
+					subclassificationXPath = xPath.compile(
+							"ownedRelationship[@type='sysml:Subclassification']/superclassifier[@href]/@href" +
+							" | ownedRelationship[@type='sysml:Subclassification']/@superclassifier"
+					);
 				} catch (XPathExpressionException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				NodeList supc1 = null;
+				NodeList supc = null;
 				try {
-					supc1 = (NodeList) subclassification1XPath.evaluate(sbc, XPathConstants.NODESET);
+					supc = (NodeList) subclassificationXPath.evaluate(sbc, XPathConstants.NODESET);
 				} catch (XPathExpressionException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				for (int j = 0; j < supc1.getLength(); j++) {
-					String supId = supc1.item(j).getTextContent().replaceAll("\\A.*#", "");
-					sbcSuper.addVertex(supId);
-					sbcSuper.addEdge(id, supId);
-					logger.info("specialization " + id + " :> " + supId);
-				}
-				XPathExpression subclassification2XPath = null;
-				try {
-					subclassification2XPath = xPath.compile("ownedRelationship[@type='sysml:Subclassification' and @superclassifier]/@superclassifier");
-				} catch (XPathExpressionException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				NodeList supc2 = null;
-				try {
-					supc2 = (NodeList) subclassification2XPath.evaluate(sbc, XPathConstants.NODESET);
-				} catch (XPathExpressionException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				for (int j = 0; j < supc2.getLength(); j++) {
-					String supId = supc2.item(j).getTextContent().replaceAll("\\A.*#", "");
+				for (int j = 0; j < supc.getLength(); j++) {
+					String supId = supc.item(j).getTextContent().replaceAll("\\A.*#", "");
 					sbcSuper.addVertex(supId);
 					sbcSuper.addEdge(id, supId);
 					logger.info("specialization " + id + " :> " + supId);
@@ -353,42 +336,25 @@ public class Taxonomy2Oml {
 				 * Find  disjoining relations.
 				 */
 				
-				XPathExpression disjoining1XPath = null;
+				XPathExpression disjoiningXPath = null;
 				try {
-					disjoining1XPath = xPath.compile("ownedRelationship[@type='sysml:Disjoining']/disjoiningType[@href]/@href");
+					disjoiningXPath = xPath.compile(
+							"ownedRelationship[@type='sysml:Disjoining']/disjoiningType[@href]/@href" +
+							" | ownedRelationship[@type='sysml:Disjoining']/@disjoiningType"
+					);
 				} catch (XPathExpressionException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				NodeList djc1 = null;
+				NodeList djc = null;
 				try {
-					djc1 = (NodeList) disjoining1XPath.evaluate(sbc, XPathConstants.NODESET);
+					djc = (NodeList) disjoiningXPath.evaluate(sbc, XPathConstants.NODESET);
 				} catch (XPathExpressionException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				for (int j = 0; j < djc1.getLength(); j++) {
-					String djId = djc1.item(j).getTextContent().replaceAll("\\A.*#", "");
-					djClass.addVertex(djId);
-					djClass.addEdge(id, djId);
-					logger.info("disjoining " + id + " " + djId);
-				}
-				XPathExpression disjoining2XPath = null;
-				try {
-					disjoining2XPath = xPath.compile("ownedRelationship[@type='sysml:Disjoining' and @disjoiningType]/@disjoiningType");
-				} catch (XPathExpressionException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				NodeList djc2 = null;
-				try {
-					djc2 = (NodeList) disjoining2XPath.evaluate(sbc, XPathConstants.NODESET);
-				} catch (XPathExpressionException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				for (int j = 0; j < djc2.getLength(); j++) {
-					String djId = djc2.item(j).getTextContent().replaceAll("\\A.*#", "");
+				for (int j = 0; j < djc.getLength(); j++) {
+					String djId = djc.item(j).getTextContent().replaceAll("\\A.*#", "");
 					djClass.addVertex(djId);
 					djClass.addEdge(id, djId);
 					logger.info("disjoining " + id + " " + djId);
