@@ -6,7 +6,9 @@ package sysml2oml;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathExpressionException;
@@ -52,7 +54,7 @@ public class App {
 			description = "Metaclass to map to concept", 
 			required = true, 
 			order = 1)
-	private static List<String> metaclasses = new ArrayList<>();
+	private static Set<String> metaclasses = new HashSet<>();
 
 	@Parameter(
 			names = { "--supertypes-map", "-s" }, 

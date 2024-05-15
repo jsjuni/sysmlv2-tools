@@ -73,7 +73,7 @@ public class Taxonomy2Oml {
 	protected final String coreVocabsPath;
 	protected final String bundle;
 	protected final String outputPath;
-	protected final List<String> metaclasses;
+	protected final Set<String> metaclasses;
 	protected final String mapFile;
 	protected final String catalogPath;
 	
@@ -95,7 +95,7 @@ public class Taxonomy2Oml {
 	 * Constructs a new instance
 	 * 
 	 */
-	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, List<String> metaclasses, String mapFile, String catalogPath) {
+	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, Set<String> metaclasses, String mapFile, String catalogPath) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
 		this.coreVocabsPath = coreVocabsPath;
@@ -300,7 +300,7 @@ public class Taxonomy2Oml {
 				idByDn.put(dn, id);
 				idByName.put(packageName, id);
 				sbcSuper.addVertex(id);
-				logger.info("concept " + dn + " type " + tp + " vocab-iri " + iri + " id " + id);
+				logger.info("candidate " + dn + " type " + tp + " vocab-iri " + iri + " id " + id);
 
 				/*
 				 * Find  superclass relations.
