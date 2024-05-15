@@ -90,6 +90,7 @@ public class Taxonomy2Oml {
 	protected final Map<Concept, String> dnByConcept = new HashMap<>();
 	
 	protected final SimpleDirectedGraph<String, DefaultEdge> sbcSuper = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
+	protected final SimpleDirectedGraph<String, DefaultEdge> djClass = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 	
 	/**
 	 * Constructs a new instance
@@ -300,6 +301,7 @@ public class Taxonomy2Oml {
 				idByDn.put(dn, id);
 				idByName.put(packageName, id);
 				sbcSuper.addVertex(id);
+				djClass.addVertex(id);
 				logger.info("candidate " + dn + " type " + tp + " vocab-iri " + iri + " id " + id);
 
 				/*
@@ -321,10 +323,10 @@ public class Taxonomy2Oml {
 					e.printStackTrace();
 				}
 				for (int j = 0; j < supc1.getLength(); j++) {
-					String sup_id = supc1.item(j).getTextContent().replaceAll("\\A.*#", "");
-					sbcSuper.addVertex(sup_id);
-					sbcSuper.addEdge(id, sup_id);
-					logger.info("specialization " + id + " :> " + sup_id);
+					String supId = supc1.item(j).getTextContent().replaceAll("\\A.*#", "");
+					sbcSuper.addVertex(supId);
+					sbcSuper.addEdge(id, supId);
+					logger.info("specialization " + id + " :> " + supId);
 				}
 				XPathExpression subclassification2XPath = null;
 				try {
@@ -341,10 +343,55 @@ public class Taxonomy2Oml {
 					e.printStackTrace();
 				}
 				for (int j = 0; j < supc2.getLength(); j++) {
-					String sup_id = supc2.item(j).getTextContent().replaceAll("\\A.*#", "");
-					sbcSuper.addVertex(sup_id);
-					sbcSuper.addEdge(id, sup_id);
-					logger.info("specialization " + id + " :> " + sup_id);
+					String supId = supc2.item(j).getTextContent().replaceAll("\\A.*#", "");
+					sbcSuper.addVertex(supId);
+					sbcSuper.addEdge(id, supId);
+					logger.info("specialization " + id + " :> " + supId);
+				}
+
+				/*
+				 * Find  disjoining relations.
+				 */
+				
+				XPathExpression disjoining1XPath = null;
+				try {
+					disjoining1XPath = xPath.compile("ownedRelationship[@type='sysml:Disjoining']/disjoiningType[@href]/@href");
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				NodeList djc1 = null;
+				try {
+					djc1 = (NodeList) disjoining1XPath.evaluate(sbc, XPathConstants.NODESET);
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				for (int j = 0; j < djc1.getLength(); j++) {
+					String djId = djc1.item(j).getTextContent().replaceAll("\\A.*#", "");
+					djClass.addVertex(djId);
+					djClass.addEdge(id, djId);
+					logger.info("disjoining " + id + " " + djId);
+				}
+				XPathExpression disjoining2XPath = null;
+				try {
+					disjoining2XPath = xPath.compile("ownedRelationship[@type='sysml:Disjoining' and @disjoiningType]/@disjoiningType");
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				NodeList djc2 = null;
+				try {
+					djc2 = (NodeList) disjoining2XPath.evaluate(sbc, XPathConstants.NODESET);
+				} catch (XPathExpressionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				for (int j = 0; j < djc2.getLength(); j++) {
+					String djId = djc2.item(j).getTextContent().replaceAll("\\A.*#", "");
+					sbcSuper.addVertex(djId);
+					sbcSuper.addEdge(id, djId);
+					logger.info("disjoining " + id + " " + djId);
 				}
 
 			}
