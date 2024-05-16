@@ -110,14 +110,30 @@ public class Taxonomy2Oml {
 	public void run() throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
 		
 		/*
+		 * Compile xpath expressions for later use.
+		 */
+		
+		XPath xPath = XPathFactory.newInstance().newXPath();
+		XPathExpression topPackageXPath = xPath.compile("Namespace/ownedRelationship[@type='sysml:OwningMembership']/ownedRelatedElement[@type='sysml:LibraryPackage']");
+		XPathExpression ownedRelationshipXPath = xPath.compile("ownedRelationship[@type='sysml:OwningMembership']/ownedRelatedElement");
+		XPathExpression subclassificationXPath = xPath.compile(
+				"ownedRelationship[@type='sysml:Subclassification']/superclassifier[@href]/@href" +
+						" | ownedRelationship[@type='sysml:Subclassification']/@superclassifier"
+				);
+		XPathExpression disjoiningXPath = xPath.compile(
+				"ownedRelationship[@type='sysml:Disjoining']/disjoiningType[@href]/@href" +
+						" | ownedRelationship[@type='sysml:Disjoining']/@disjoiningType"
+				);
+
+		/*
 		 * Load implicit supertypes map.
 		 */
 		
 		@SuppressWarnings("resource")
 		Map<String, String> values = new CSVReaderHeaderAware(new FileReader(mapFile)).readMap();
-		Map<String, String> st_map = new HashMap<>();
+		Map<String, String> stMap = new HashMap<>();
 		values.forEach((v1, v2) -> {
-			st_map.put(v1, v2);
+			stMap.put(v1, v2);
 		});
 		
 		/*
@@ -126,9 +142,6 @@ public class Taxonomy2Oml {
 		
 		Pattern pattern = Pattern.compile(".*\\.(kermlx|sysmlx)");
 		DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-		XPath xPath = XPathFactory.newInstance().newXPath();
-		String topPackageString = "Namespace/ownedRelationship[@type='sysml:OwningMembership']/ownedRelatedElement[@type='sysml:LibraryPackage']";
-		XPathExpression topPackageXPath = xPath.compile(topPackageString);
 
 		logger.info("load documents");
 		inputPaths.forEach(pathString -> {
@@ -266,13 +279,6 @@ public class Taxonomy2Oml {
 			 * Find elements that will become concepts.
 			 */
 			
-			XPathExpression ownedRelationshipXPath = null;
-			try {
-				ownedRelationshipXPath = xPath.compile("ownedRelationship[@type='sysml:OwningMembership']/ownedRelatedElement");
-			} catch (XPathExpressionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 			NodeList sbcs = null;
 			try {
 				sbcs = (NodeList) ownedRelationshipXPath.evaluate(pkg, XPathConstants.NODESET);
@@ -308,16 +314,6 @@ public class Taxonomy2Oml {
 				 * Find  superclass relations.
 				 */
 				
-				XPathExpression subclassificationXPath = null;
-				try {
-					subclassificationXPath = xPath.compile(
-							"ownedRelationship[@type='sysml:Subclassification']/superclassifier[@href]/@href" +
-							" | ownedRelationship[@type='sysml:Subclassification']/@superclassifier"
-					);
-				} catch (XPathExpressionException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
 				NodeList supc = null;
 				try {
 					supc = (NodeList) subclassificationXPath.evaluate(sbc, XPathConstants.NODESET);
@@ -336,16 +332,6 @@ public class Taxonomy2Oml {
 				 * Find  disjoining relations.
 				 */
 				
-				XPathExpression disjoiningXPath = null;
-				try {
-					disjoiningXPath = xPath.compile(
-							"ownedRelationship[@type='sysml:Disjoining']/disjoiningType[@href]/@href" +
-							" | ownedRelationship[@type='sysml:Disjoining']/@disjoiningType"
-					);
-				} catch (XPathExpressionException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
 				NodeList djc = null;
 				try {
 					djc = (NodeList) disjoiningXPath.evaluate(sbc, XPathConstants.NODESET);
@@ -363,6 +349,10 @@ public class Taxonomy2Oml {
 			}
 			
 		});
+		
+		/*
+		 * Create vocabularies.
+		 */
 		
 		packages.forEach((iri, pkg) -> {
 			URI uri = URI.createFileURI(outputFn.get(iri));
@@ -441,6 +431,8 @@ public class Taxonomy2Oml {
 				Vocabulary dj2Vocab = dj2.getOwningVocabulary();
 				String dj2Prefix = dj2Vocab.getPrefix();
 				
+				logger.info("concept " + dj1Prefix + ":" + dj1.getName() + " disjoint from " + dj2Prefix + ":" + dj2.getName());
+
 				String dj2Name = (dj1Prefix == dj2Prefix ? "" : dj2Prefix + ":") + dnByConcept.get(dj2);
 				omlBuilder.addAnnotation(dj1Vocab, dj1, "http://www.w3.org/2000/01/rdf-schema#comment",
 						omlBuilder.createLiteral("disjoint from " + dj2Name), null);				
