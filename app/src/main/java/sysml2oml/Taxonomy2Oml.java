@@ -91,6 +91,7 @@ public class Taxonomy2Oml {
 	
 	protected final SimpleDirectedGraph<String, DefaultEdge> sbcSuper = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 	protected final SimpleDirectedGraph<String, DefaultEdge> djClass = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
+	protected final SimpleDirectedGraph<String, DefaultEdge> sbcImplicit = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 	
 	/**
 	 * Constructs a new instance
@@ -130,11 +131,19 @@ public class Taxonomy2Oml {
 		 */
 		
 		@SuppressWarnings("resource")
-		Map<String, String> values = new CSVReaderHeaderAware(new FileReader(mapFile)).readMap();
+		
+		/*
+		 * Load implicit supertypes map.
+		 */
+		
+		CSVReaderHeaderAware csvReader = new CSVReaderHeaderAware(new FileReader(mapFile));
 		Map<String, String> stMap = new HashMap<>();
-		values.forEach((v1, v2) -> {
-			stMap.put(v1, v2);
-		});
+		Map <String, String> tm = new HashMap<>();
+		while ((tm = csvReader.readMap()) != null) {
+			String key = "sysml:" + tm.get("Abstract syntax");
+			String val = tm.get("Implicit subclassification to superclassifier").replaceAll("::", ":");
+			stMap.put(key, val);
+		}
 		
 		/*
 		 * Find all XMI files in path and parse.
@@ -266,11 +275,10 @@ public class Taxonomy2Oml {
 
 				
 		/*
-		 * Create vocabularies.
+		 * Process packages.
 		 */
 		
-		logger.info("create vocabularies");		
-		Set<URI> outputResourceUris = new HashSet<>();
+		logger.info("process packages");
 		packages.forEach((iri, pkg) -> {
 			Node packageNameNode = pkg.getAttributes().getNamedItem("declaredName");
 			String packageName = packageNameNode.getNodeValue();
@@ -300,12 +308,13 @@ public class Taxonomy2Oml {
 				
 				Node idNode = sbcAttributes.getNamedItem("elementId");
 				String id = idNode.getNodeValue();
+				String qName = packageName + ":" + dn;
 				Map<String, String> m = new HashMap<>();
 				m.put("name", dn);
 				m.put("iri", iri.toString());
 				sbcById.put(id, m);
 				idByDn.put(dn, id);
-				idByName.put(packageName, id);
+				idByName.put(qName, id);
 				sbcSuper.addVertex(id);
 				djClass.addVertex(id);
 				logger.info("candidate " + dn + " type " + tp + " vocab-iri " + iri + " id " + id);
@@ -327,7 +336,22 @@ public class Taxonomy2Oml {
 					sbcSuper.addEdge(id, supId);
 					logger.info("specialization " + id + " :> " + supId);
 				}
+				
+				/*
+				 * Add implicit superclass relations.
+				 */
 
+				if (sbcSuper.outDegreeOf(id) == 0) {
+					logger.info("tp " + tp);
+					String spcType = stMap.get(tp);
+					if (spcType != null) {
+			            logger.info("implicit edge " + qName + " :> " + spcType);
+			            sbcImplicit.addVertex(qName);
+			            sbcImplicit.addVertex(spcType);
+						sbcImplicit.addEdge(qName, spcType);
+					}
+				}
+				
 				/*
 				 * Find  disjoining relations.
 				 */
@@ -354,6 +378,8 @@ public class Taxonomy2Oml {
 		 * Create vocabularies.
 		 */
 		
+		logger.info("create vocabularies");		
+		Set<URI> outputResourceUris = new HashSet<>();
 		packages.forEach((iri, pkg) -> {
 			URI uri = URI.createFileURI(outputFn.get(iri));
 			outputResourceUris.add(uri);
@@ -384,7 +410,7 @@ public class Taxonomy2Oml {
 		});
 			
 		/*
-		 * Add concept specialization axioms and extension axioms.
+		 * Add explicit concept specialization axioms and extension axioms.
 		 */
 
 		Map<Vocabulary, Set<Vocabulary>> imported = new HashMap<>();
@@ -392,28 +418,17 @@ public class Taxonomy2Oml {
 		sbcSuper.edgeSet().forEach(e -> {
 			String es = sbcSuper.getEdgeSource(e);
 			String et = sbcSuper.getEdgeTarget(e);
-			Concept subC = concepts.get(es);
-			Concept supC = concepts.get(et);
-			if (supC != null) {
-				Vocabulary subVocab = subC.getOwningVocabulary();
-				String subPrefix = subVocab.getPrefix();
-				Vocabulary supVocab = supC.getOwningVocabulary();
-				String supPrefix = supVocab.getPrefix();
-				
-				omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
-				
-				String superName = (subPrefix == supPrefix ? "" : supPrefix + ":") + dnByConcept.get(supC);
-				omlBuilder.addAnnotation(subVocab, subC, "http://www.w3.org/2000/01/rdf-schema#comment",
-						omlBuilder.createLiteral("specializes " + superName), null);
-				
-				logger.info("concept " + subPrefix + ":" + subC.getName() + " :> " + supPrefix + ":" + supC.getName());
-				
-				if (!imported.containsKey(subVocab)) imported.put(subVocab, new HashSet<Vocabulary>());
-				if (subVocab != supVocab && !imported.get(subVocab).contains(supVocab)) {
-					omlBuilder.addImport(subVocab, ImportKind.EXTENSION, supVocab.getIri() + "#", supPrefix);
-					imported.get(subVocab).add(supVocab);
-				}
-			}
+			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, false);
+		});
+			  			
+		/*
+		 * Add implicit concept specialization axioms and extension axioms.
+		 */
+
+		sbcImplicit.edgeSet().forEach(e -> {
+			String es = idByName.get(sbcImplicit.getEdgeSource(e));
+			String et = idByName.get(sbcImplicit.getEdgeTarget(e));
+			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, true);
 		});
 			  			
 		/*
@@ -550,5 +565,31 @@ public class Taxonomy2Oml {
 	
 	private static String cleanIdentifier(String id) {
 		return "Concept_" + Base58.base58Encode(id.getBytes());
+	}
+	
+	private static void addSpecialization(Map<String, Concept> concepts, String es, String et, OmlBuilder omlBuilder,
+			Map<Concept, String> dnByConcept, Logger logger, Map<Vocabulary, Set<Vocabulary>> imported, boolean implicit) {
+		Concept subC = concepts.get(es);
+		Concept supC = concepts.get(et);
+		if (supC != null) {
+			Vocabulary subVocab = subC.getOwningVocabulary();
+			String subPrefix = subVocab.getPrefix();
+			Vocabulary supVocab = supC.getOwningVocabulary();
+			String supPrefix = supVocab.getPrefix();
+
+			omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
+
+			String superName = (subPrefix == supPrefix ? "" : supPrefix + ":") + dnByConcept.get(supC);
+			omlBuilder.addAnnotation(subVocab, subC, "http://www.w3.org/2000/01/rdf-schema#comment",
+					omlBuilder.createLiteral("specializes " + (implicit ? "(implicit) " : "") + superName), null);
+
+			logger.info("concept " + subPrefix + ":" + subC.getName() + " :> " + supPrefix + ":" + supC.getName());
+
+			if (!imported.containsKey(subVocab)) imported.put(subVocab, new HashSet<Vocabulary>());
+			if (subVocab != supVocab && !imported.get(subVocab).contains(supVocab)) {
+				omlBuilder.addImport(subVocab, ImportKind.EXTENSION, supVocab.getIri() + "#", supPrefix);
+				imported.get(subVocab).add(supVocab);
+			}
+		}
 	}
 }
