@@ -506,7 +506,7 @@ public class Taxonomy2Oml {
 
 	private static String makeCatalogRewritePrefix(Path sp, Path fp) {
 		Path trail = trail(fp, sp);
-		return "/omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
+		return "omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
 	}
 	
 	private static void createOutputCatalog(String path, Map<String, String> map) {
