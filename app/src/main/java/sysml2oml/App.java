@@ -71,6 +71,13 @@ public class App {
 	private static String catalogPath;
 
 	@Parameter(
+			names = { "--edgelist-path", "-e" }, 
+			description = "File path for output edgelist", 
+			required = false, 
+			order = 1)
+	private static String edgelistPath;
+
+	@Parameter(
 			names = { "--help", "-h" },
 			description = "Displays summary of options",
 			help = true,
@@ -89,7 +96,8 @@ public class App {
 		
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundle, outputPath, metaclasses, mapFile, catalogPath);
+		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundle, outputPath, metaclasses, mapFile,
+				catalogPath, edgelistPath);
 		
         taxonomy2Oml.run();
     }

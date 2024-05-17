@@ -51,6 +51,7 @@ import org.xml.sax.SAXException;
 import org.w3c.dom.Element;
 
 import com.opencsv.CSVReaderHeaderAware;
+import com.opencsv.CSVWriter;
 import com.opencsv.exceptions.CsvValidationException;
 
 import io.github.novacrypto.base58.Base58;
@@ -76,6 +77,7 @@ public class Taxonomy2Oml {
 	protected final Set<String> metaclasses;
 	protected final String mapFile;
 	protected final String catalogPath;
+	protected final String edgelistPath;
 	
 	protected final Map<String, URI> iriByDeclName = new HashMap<>();
 	protected final Map<URI, String> outputFn = new HashMap<>();
@@ -97,7 +99,8 @@ public class Taxonomy2Oml {
 	 * Constructs a new instance
 	 * 
 	 */
-	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, Set<String> metaclasses, String mapFile, String catalogPath) {
+	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, Set<String> metaclasses, String mapFile,
+			String catalogPath, String edgelistPath) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
 		this.coreVocabsPath = coreVocabsPath;
@@ -106,6 +109,7 @@ public class Taxonomy2Oml {
 		this.metaclasses = metaclasses;
 		this.mapFile = mapFile;
 		this.catalogPath = catalogPath;
+		this.edgelistPath = edgelistPath;
 	}
 	
 	public void run() throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
@@ -130,12 +134,6 @@ public class Taxonomy2Oml {
 		 * Load implicit supertypes map.
 		 */
 		
-		@SuppressWarnings("resource")
-		
-		/*
-		 * Load implicit supertypes map.
-		 */
-		
 		CSVReaderHeaderAware csvReader = new CSVReaderHeaderAware(new FileReader(mapFile));
 		Map<String, String> stMap = new HashMap<>();
 		Map <String, String> tm = new HashMap<>();
@@ -144,6 +142,13 @@ public class Taxonomy2Oml {
 			String val = tm.get("Implicit subclassification to superclassifier").replaceAll("::", ":");
 			stMap.put(key, val);
 		}
+		csvReader.close();
+		
+		/*
+		 * Open optional output edgelist.
+		 */
+		final CSVWriter edgelistWriter = (edgelistPath != null) ? 
+			new CSVWriter(new FileWriter(edgelistPath)) : null;
 		
 		/*
 		 * Find all XMI files in path and parse.
@@ -418,7 +423,7 @@ public class Taxonomy2Oml {
 		sbcSuper.edgeSet().forEach(e -> {
 			String es = sbcSuper.getEdgeSource(e);
 			String et = sbcSuper.getEdgeTarget(e);
-			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, false);
+			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, false, edgelistWriter);
 		});
 			  			
 		/*
@@ -428,9 +433,11 @@ public class Taxonomy2Oml {
 		sbcImplicit.edgeSet().forEach(e -> {
 			String es = idByName.get(sbcImplicit.getEdgeSource(e));
 			String et = idByName.get(sbcImplicit.getEdgeTarget(e));
-			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, true);
+			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, true, edgelistWriter);
 		});
 			  			
+		if (edgelistWriter != null) edgelistWriter.close();
+
 		/*
 		 * Add annotations for disjointness.
 		 */
@@ -455,7 +462,7 @@ public class Taxonomy2Oml {
 		});
 		
 		/*
-		 * Write output.
+		 * Write output OML files.
 		 */
 		
 		logger.info("finish builder");
@@ -472,7 +479,7 @@ public class Taxonomy2Oml {
 				e.printStackTrace();
 			}
 		});
-				
+		
 		logger.info("done");
 	}
 	
@@ -568,7 +575,8 @@ public class Taxonomy2Oml {
 	}
 	
 	private static void addSpecialization(Map<String, Concept> concepts, String es, String et, OmlBuilder omlBuilder,
-			Map<Concept, String> dnByConcept, Logger logger, Map<Vocabulary, Set<Vocabulary>> imported, boolean implicit) {
+			Map<Concept, String> dnByConcept, Logger logger, Map<Vocabulary, Set<Vocabulary>> imported, boolean implicit,
+			CSVWriter edgelistWriter) {
 		Concept subC = concepts.get(es);
 		Concept supC = concepts.get(et);
 		if (supC != null) {
@@ -576,6 +584,8 @@ public class Taxonomy2Oml {
 			String subPrefix = subVocab.getPrefix();
 			Vocabulary supVocab = supC.getOwningVocabulary();
 			String supPrefix = supVocab.getPrefix();
+			String subQName = subPrefix + ":" + dnByConcept.get(subC);
+			String supQName = supPrefix + ":" + dnByConcept.get(supC);
 
 			omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
 
@@ -583,7 +593,12 @@ public class Taxonomy2Oml {
 			omlBuilder.addAnnotation(subVocab, subC, "http://www.w3.org/2000/01/rdf-schema#comment",
 					omlBuilder.createLiteral("specializes " + (implicit ? "(implicit) " : "") + superName), null);
 
-			logger.info("concept " + subPrefix + ":" + subC.getName() + " :> " + supPrefix + ":" + supC.getName());
+			if (edgelistWriter != null) {
+				String[] row = { supQName, subQName };
+				edgelistWriter.writeNext(row);
+			}
+			
+			logger.info("concept " + subQName + " :> " + supQName);
 
 			if (!imported.containsKey(subVocab)) imported.put(subVocab, new HashSet<Vocabulary>());
 			if (subVocab != supVocab && !imported.get(subVocab).contains(supVocab)) {
