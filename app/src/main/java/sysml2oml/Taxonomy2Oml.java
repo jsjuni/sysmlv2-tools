@@ -61,6 +61,7 @@ import io.opencaesar.oml.ImportKind;
 import io.opencaesar.oml.Literal;
 import io.opencaesar.oml.OmlFactory;
 import io.opencaesar.oml.Vocabulary;
+import io.opencaesar.oml.VocabularyBundle;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
 import io.opencaesar.oml.util.OmlBuilder;
 import io.opencaesar.oml.util.OmlConstants;
@@ -72,7 +73,7 @@ public class Taxonomy2Oml {
 	protected final Logger logger;
 	protected final List<String> inputPaths;
 	protected final String coreVocabsPath;
-	protected final String bundle;
+	protected final String bundleStem;
 	protected final String outputPath;
 	protected final Set<String> metaclasses;
 	protected final String mapFile;
@@ -99,12 +100,12 @@ public class Taxonomy2Oml {
 	 * Constructs a new instance
 	 * 
 	 */
-	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundle, String outputPath, Set<String> metaclasses, String mapFile,
+	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundleStem, String outputPath, Set<String> metaclasses, String mapFile,
 			String catalogPath, String edgelistPath) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
 		this.coreVocabsPath = coreVocabsPath;
-		this.bundle = bundle;
+		this.bundleStem = bundleStem;
 		this.outputPath = outputPath;
 		this.metaclasses = metaclasses;
 		this.mapFile = mapFile;
@@ -235,6 +236,13 @@ public class Taxonomy2Oml {
 			}
 		});
 		logger.info(String.format("loaded %d documents", packages.size()));
+		
+		/*
+		 * Add catalog rule for bundle (optional).
+		 */
+		
+		if (bundleStem != null) {
+		}
 		
 		/*
 		 * Add default catalog rule and write catalog.
@@ -390,7 +398,7 @@ public class Taxonomy2Oml {
 			outputResourceUris.add(uri);
 			String namespace = iri.toString() + "#";
 			Vocabulary v = omlBuilder.createVocabulary(uri, namespace, Paths.get(iri.toString()).getFileName().toString());
-			vocabularies.put(iri,v);
+			vocabularies.put(iri, v);
 			
 			Import rdfsImport = oml.createImport();
 			rdfsImport.setKind(ImportKind.EXTENSION);
@@ -460,6 +468,26 @@ public class Taxonomy2Oml {
 						omlBuilder.createLiteral("disjoint from " + dj2Name), null);				
 			}
 		});
+		
+		/*
+		 * Create vocabulary bundle.
+		 */
+		
+		if (bundleStem != null) {
+			String core = outputPath + "/" + "omg.org/SysML-v2" + "/" + bundleStem;
+			String bundlePath = core + ".oml";
+			URI bundleUri = URI.createFileURI(bundlePath);
+			String bundleNamespace = "http:/" + ("/" + core.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
+			VocabularyBundle vocabBundle = omlBuilder.createVocabularyBundle(bundleUri, bundleNamespace, bundleStem);
+			outputResourceUris.add(bundleUri);
+			
+			vocabularies.forEach((iri, vocab) -> {
+				Import vocabImport = oml.createImport();
+				vocabImport.setKind(ImportKind.INCLUSION);
+				vocabImport.setNamespace(vocab.getNamespace());
+				vocabImport.setOwningOntology(vocabBundle);
+			});
+		}
 		
 		/*
 		 * Write output OML files.

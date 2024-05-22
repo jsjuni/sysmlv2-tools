@@ -36,11 +36,11 @@ public class App {
 	private static String coreVocabsPath;
 
 	@Parameter(
-			names = { "--bundle", "-b" }, 
-			description = "Path for bundle", 
+			names = { "--bundle-stem" }, 
+			description = "Stem for bundle", 
 			required = false, 
 			order = 1)
-	private static String bundle;
+	private static String bundleStem;
 
 	@Parameter(
 			names = { "--output-path", "-o" }, 
@@ -96,7 +96,7 @@ public class App {
 		
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundle, outputPath, metaclasses, mapFile,
+		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundleStem, outputPath, metaclasses, mapFile,
 				catalogPath, edgelistPath);
 		
         taxonomy2Oml.run();
