@@ -78,6 +78,13 @@ public class App {
 	private static String edgelistPath;
 
 	@Parameter(
+			names = { "--pairs-stem" }, 
+			description = "Stem for output pairs vocabulary", 
+			required = false, 
+			order = 1)
+	private static String pairsStem;
+
+	@Parameter(
 			names = { "--help", "-h" },
 			description = "Displays summary of options",
 			help = true,
@@ -97,7 +104,7 @@ public class App {
 		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
 		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundleStem, outputPath, metaclasses, mapFile,
-				catalogPath, edgelistPath);
+				catalogPath, edgelistPath, pairsStem);
 		
         taxonomy2Oml.run();
     }

@@ -39,8 +39,9 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.ECrossReferenceAdapter;
-
+import org.jgrapht.alg.TransitiveClosure;
 import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.DirectedAcyclicGraph;
 import org.jgrapht.graph.SimpleDirectedGraph;
 import org.slf4j.Logger;
 import org.w3c.dom.Document;
@@ -50,6 +51,8 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import org.w3c.dom.Element;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Sets;
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.CSVWriter;
 import com.opencsv.exceptions.CsvValidationException;
@@ -79,6 +82,7 @@ public class Taxonomy2Oml {
 	protected final String mapFile;
 	protected final String catalogPath;
 	protected final String edgelistPath;
+	protected final String pairsStem;
 	
 	protected final Map<String, URI> iriByDeclName = new HashMap<>();
 	protected final Map<URI, String> outputFn = new HashMap<>();
@@ -101,7 +105,7 @@ public class Taxonomy2Oml {
 	 * 
 	 */
 	public Taxonomy2Oml(Logger logger, List<String> inputPaths, String coreVocabsPath, String bundleStem, String outputPath, Set<String> metaclasses, String mapFile,
-			String catalogPath, String edgelistPath) {
+			String catalogPath, String edgelistPath, String pairsStem) {
 		this.logger = logger;
 		this.inputPaths = inputPaths;
 		this.coreVocabsPath = coreVocabsPath;
@@ -111,6 +115,7 @@ public class Taxonomy2Oml {
 		this.mapFile = mapFile;
 		this.catalogPath = catalogPath;
 		this.edgelistPath = edgelistPath;
+		this.pairsStem = pairsStem;
 	}
 	
 	public void run() throws CsvValidationException, FileNotFoundException, IOException, ParserConfigurationException, XPathExpressionException {
@@ -470,7 +475,7 @@ public class Taxonomy2Oml {
 		});
 		
 		/*
-		 * Create vocabulary bundle.
+		 * Create optional vocabulary bundle.
 		 */
 		
 		if (bundleStem != null) {
@@ -487,8 +492,64 @@ public class Taxonomy2Oml {
 				vocabImport.setNamespace(vocab.getNamespace());
 				vocabImport.setOwningOntology(vocabBundle);
 			});
-		}
 		
+			/*
+			 * Crate optional vocabulary of all pairwise intersections.
+			 */
+			
+			if (pairsStem != null) {
+				DirectedAcyclicGraph<Concept, DefaultEdge> pairsGraph = new DirectedAcyclicGraph<Concept, DefaultEdge>(DefaultEdge.class);
+				String pairsCore = outputPath + "/" + "omg.org/SysML-v2" + "/" + pairsStem;
+				String pairsPath = pairsCore + ".oml";
+				URI pairsUri = URI.createFileURI(pairsPath);
+				String pairsNamespace = "http:/" + ("/" + pairsCore.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
+				Vocabulary pairsVocab = omlBuilder.createVocabulary(pairsUri, pairsNamespace, pairsStem);
+				outputResourceUris.add(pairsUri);
+
+				vocabularies.forEach((iri, vocab) -> {
+					Import vocabImport = oml.createImport();
+					vocabImport.setKind(ImportKind.USAGE);
+					vocabImport.setNamespace(vocab.getNamespace());
+					vocabImport.setOwningOntology(pairsVocab);
+					
+					vocab.getOwnedStatements().forEach(stmt -> {
+						if (stmt instanceof Concept) {
+							Concept c = (Concept) stmt;
+							pairsGraph.addVertex(c);
+							c.getOwnedSpecializations().forEach(spec -> {
+								pairsGraph.addEdge((Concept) spec.getSubTerm(), (Concept) spec.getSuperTerm());
+							});
+						}
+					});
+				});
+				
+				TransitiveClosure tc = TransitiveClosure.INSTANCE;
+				tc.closeDirectedAcyclicGraph(pairsGraph);
+				
+				Set<Concept> vs = pairsGraph.vertexSet();
+				Set<Set<Concept>> cn = Sets.combinations(vs, 2);
+				logger.info(vs.size() + " vertices");
+				logger.info(cn.size() + " combinations");
+				
+				Map<Set<Concept>, Boolean> dj = new HashMap<>();
+				cn.forEach(pair -> {
+					dj.put(pair, 
+							pair.stream().map(v -> 
+							pairsGraph.getDescendants(v)).reduce((s1, s2) -> Sets.intersection(s1,  s1)).isEmpty()
+							);
+				});
+				
+				cn.forEach(pair -> {
+					String pairSubclassName = Joiner.on("_").join(pair.stream().map(c -> c.getName()).toArray());
+					Concept pairSubclass = omlBuilder.addConcept(pairsVocab, pairSubclassName);
+					pair.forEach(supC -> {
+//						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), supC.getIri());
+					});
+				});
+			}
+			
+		}
+
 		/*
 		 * Write output OML files.
 		 */
