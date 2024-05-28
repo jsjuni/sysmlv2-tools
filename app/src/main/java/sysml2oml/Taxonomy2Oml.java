@@ -41,7 +41,6 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.ECrossReferenceAdapter;
-import org.jgrapht.alg.TransitiveClosure;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedAcyclicGraph;
 import org.jgrapht.graph.SimpleDirectedGraph;
@@ -98,7 +97,7 @@ public class Taxonomy2Oml {
 	protected final Map<String, String> idByName = new HashMap<>();
 	protected final Map<Concept, String> dnByConcept = new HashMap<>();
 	
-	protected final SimpleDirectedGraph<String, DefaultEdge> sbcSuper = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
+	protected final DirectedAcyclicGraph<String, DefaultEdge> sbcSuper = new DirectedAcyclicGraph<String, DefaultEdge>(DefaultEdge.class);
 	protected final SimpleDirectedGraph<String, DefaultEdge> djClass = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 	protected final SimpleDirectedGraph<String, DefaultEdge> sbcImplicit = new SimpleDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 	
@@ -430,6 +429,16 @@ public class Taxonomy2Oml {
 		});
 			
 		/*
+		 * Merge implicit concept specialization axioms with explicit.
+		 */
+
+		sbcImplicit.edgeSet().forEach(e -> {
+			String es = idByName.get(sbcImplicit.getEdgeSource(e));
+			String et = idByName.get(sbcImplicit.getEdgeTarget(e));
+			sbcSuper.addEdge(es, et);
+		});
+			  			
+		/*
 		 * Add explicit concept specialization axioms and extension axioms.
 		 */
 
@@ -439,16 +448,6 @@ public class Taxonomy2Oml {
 			String es = sbcSuper.getEdgeSource(e);
 			String et = sbcSuper.getEdgeTarget(e);
 			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, false, edgelistWriter);
-		});
-			  			
-		/*
-		 * Add implicit concept specialization axioms and extension axioms.
-		 */
-
-		sbcImplicit.edgeSet().forEach(e -> {
-			String es = idByName.get(sbcImplicit.getEdgeSource(e));
-			String et = idByName.get(sbcImplicit.getEdgeTarget(e));
-			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, true, edgelistWriter);
 		});
 			  			
 		if (edgelistWriter != null) edgelistWriter.close();
@@ -500,13 +499,18 @@ public class Taxonomy2Oml {
 			 */
 			
 			if (pairsStem != null) {
-				DirectedAcyclicGraph<Concept, DefaultEdge> pairsGraph = new DirectedAcyclicGraph<Concept, DefaultEdge>(DefaultEdge.class);
 				String pairsCore = outputPath + "/" + "omg.org/SysML-v2" + "/" + pairsStem;
 				String pairsPath = pairsCore + ".oml";
 				URI pairsUri = URI.createFileURI(pairsPath);
 				String pairsNamespace = "http:/" + ("/" + pairsCore.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
 				Vocabulary pairsVocab = omlBuilder.createVocabulary(pairsUri, pairsNamespace, pairsStem);
 				outputResourceUris.add(pairsUri);
+
+				Import rdfsImport = oml.createImport();
+				rdfsImport.setKind(ImportKind.EXTENSION);
+				rdfsImport.setNamespace("http://www.w3.org/2000/01/rdf-schema#");
+				rdfsImport.setPrefix("rdfs");
+				rdfsImport.setOwningOntology(pairsVocab);
 
 				vocabularies.forEach((iri, vocab) -> {
 					Import vocabImport = oml.createImport();
@@ -515,45 +519,41 @@ public class Taxonomy2Oml {
 					vocabImport.setPrefix(vocab.getPrefix());
 					vocabImport.setOwningOntology(pairsVocab);
 					
-					vocab.getOwnedStatements().forEach(stmt -> {
-						if (stmt instanceof Concept) {
-							Concept c = (Concept) stmt;
-							pairsGraph.addVertex(c);
-							c.getOwnedSpecializations().forEach(spec -> {
-								pairsGraph.addEdge((Concept) spec.getSubTerm(), (Concept) spec.getSuperTerm());
-							});
-						}
-					});
 				});
 				
-				TransitiveClosure tc = TransitiveClosure.INSTANCE;
-				tc.closeDirectedAcyclicGraph(pairsGraph);
+				Set<String> vs = sbcSuper.vertexSet();
+				Set<DefaultEdge> es = sbcSuper.edgeSet();
+				Set<Set<String>> cn = Sets.combinations(vs, 2);
+
+				logger.info(vs.size() + " pairs vertices");
+				logger.info(es.size() + " pairs edges");
+				logger.info(cn.size() + " vertex combinations");
 				
-				Set<Concept> vs = pairsGraph.vertexSet();
-				Set<Set<Concept>> cn = Sets.combinations(vs, 2);
-				logger.info(vs.size() + " vertices");
-				logger.info(cn.size() + " combinations");
+				Map<String, Set<String>> anc = new HashMap<>();
+				Map<Set<String>, Boolean> dj = new HashMap<>();
 				
-				Map<Set<Concept>, Boolean> dj = new HashMap<>();
+				vs.forEach(v -> {
+					anc.put(v, sbcSuper.getAncestors(v));		// subclasses
+				});
+					
 				cn.forEach(pair -> {
-					dj.put(pair, 
-							pair.stream()
-								.map(v -> pairsGraph.getDescendants(v))
-								.reduce((s1, s2) -> Sets.intersection(s1,  s2))
-								.isEmpty()
-							);
-				});
-				
-				cn.stream().limit(200000).collect(Collectors.toSet()).forEach(pair -> {
 					Object[] pairArray = pair.toArray();
+					dj.put(pair, Sets.intersection(anc.get(pairArray[0]), anc.get(pairArray[1])).isEmpty());
+				});
+				logger.info(dj.values().stream().filter(v -> v).toList().size() + " unsats");
+				
+				cn.stream().limit(1000).collect(Collectors.toSet()).forEach(pair -> {
 					String pairSubclassName = Joiner.on("_")
 							.join(pair.stream()
+									.map(iri -> concepts.get(iri))
 									.flatMap(c -> Stream.of(c.getOwningVocabulary().getPrefix(), c.getName()))
 									.toArray());
 					Concept pairSubclass = omlBuilder.addConcept(pairsVocab, pairSubclassName);
 					pair.forEach(supC -> {
-						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), supC.getIri());
+						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), concepts.get(supC).getIri());
 					});
+					omlBuilder.addAnnotation(pairsVocab, pairSubclass, "http://www.w3.org/2000/01/rdf-schema#comment",
+							omlBuilder.createLiteral(dj.get(pair) ? "unsatisfiable" : "satisfiable"), null);	
 				});
 			}
 			
