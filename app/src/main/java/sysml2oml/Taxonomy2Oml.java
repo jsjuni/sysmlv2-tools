@@ -67,6 +67,7 @@ import io.opencaesar.oml.OmlFactory;
 import io.opencaesar.oml.Vocabulary;
 import io.opencaesar.oml.VocabularyBundle;
 import io.opencaesar.oml.dsl.OmlStandaloneSetup;
+import io.opencaesar.oml.resource.OmlXMIResourceFactory;
 import io.opencaesar.oml.util.OmlBuilder;
 import io.opencaesar.oml.util.OmlConstants;
 import io.opencaesar.oml.util.OmlRead;
@@ -258,6 +259,7 @@ public class Taxonomy2Oml {
 		if (catalogPath != null) createOutputCatalog(catalogPath, catalogMap);
 		
 		OmlStandaloneSetup.doSetup();
+		OmlXMIResourceFactory.register();
 		
 		ResourceSet outputResourceSet = new ResourceSetImpl();
 		outputResourceSet.getLoadOptions().put(OmlConstants.RESOLVE_IRI_USING_RESOURCE_SET, true);
@@ -481,7 +483,7 @@ public class Taxonomy2Oml {
 		
 		if (bundleStem != null) {
 			String core = outputPath + "/" + "omg.org/SysML-v2" + "/" + bundleStem;
-			String bundlePath = core + ".oml";
+			String bundlePath = core + ".omlxmi";
 			URI bundleUri = URI.createFileURI(bundlePath);
 			String bundleNamespace = "http:/" + ("/" + core.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
 			VocabularyBundle vocabBundle = omlBuilder.createVocabularyBundle(bundleUri, bundleNamespace, bundleStem);
@@ -500,7 +502,7 @@ public class Taxonomy2Oml {
 			
 			if (pairsStem != null) {
 				String pairsCore = outputPath + "/" + "omg.org/SysML-v2" + "/" + pairsStem;
-				String pairsPath = pairsCore + ".oml";
+				String pairsPath = pairsCore + ".omlxmi";
 				URI pairsUri = URI.createFileURI(pairsPath);
 				String pairsNamespace = "http:/" + ("/" + pairsCore.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
 				Vocabulary pairsVocab = omlBuilder.createVocabulary(pairsUri, pairsNamespace, pairsStem);
@@ -542,7 +544,7 @@ public class Taxonomy2Oml {
 				});
 				logger.info(dj.values().stream().filter(v -> v).toList().size() + " unsats");
 				
-				cn.stream().limit(1000).collect(Collectors.toSet()).forEach(pair -> {
+				cn.stream().limit(100000).collect(Collectors.toSet()).forEach(pair -> {
 					String pairSubclassName = Joiner.on("_")
 							.join(pair.stream()
 									.map(iri -> concepts.get(iri))
@@ -593,7 +595,7 @@ public class Taxonomy2Oml {
 	private static String makeOutputFn(String op, Path sp, Path fp) {
 		Path trail = trail(fp, sp);
 		String path = op + "/omg.org/SysML-v2/" + trail.getParent().toString();
-		String stem = trail.getFileName().toString().replaceAll("\\..*$", ".oml");
+		String stem = trail.getFileName().toString().replaceAll("\\..*$", ".omlxmi");
 		return (path + "/" + stem).replaceAll("\\/+", "/");
 	}
 	
