@@ -483,7 +483,7 @@ public class Taxonomy2Oml {
 		
 		if (bundleStem != null) {
 			String core = outputPath + "/" + "omg.org/SysML-v2" + "/" + bundleStem;
-			String bundlePath = core + ".omlxmi";
+			String bundlePath = core + ".oml";
 			URI bundleUri = URI.createFileURI(bundlePath);
 			String bundleNamespace = "http:/" + ("/" + core.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
 			VocabularyBundle vocabBundle = omlBuilder.createVocabularyBundle(bundleUri, bundleNamespace, bundleStem);
@@ -502,7 +502,7 @@ public class Taxonomy2Oml {
 			
 			if (pairsStem != null) {
 				String pairsCore = outputPath + "/" + "omg.org/SysML-v2" + "/" + pairsStem;
-				String pairsPath = pairsCore + ".omlxmi";
+				String pairsPath = pairsCore + ".oml";
 				URI pairsUri = URI.createFileURI(pairsPath);
 				String pairsNamespace = "http:/" + ("/" + pairsCore.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
 				Vocabulary pairsVocab = omlBuilder.createVocabulary(pairsUri, pairsNamespace, pairsStem);
@@ -516,7 +516,7 @@ public class Taxonomy2Oml {
 
 				vocabularies.forEach((iri, vocab) -> {
 					Import vocabImport = oml.createImport();
-					vocabImport.setKind(ImportKind.USAGE);
+					vocabImport.setKind(ImportKind.EXTENSION);
 					vocabImport.setNamespace(vocab.getNamespace());
 					vocabImport.setPrefix(vocab.getPrefix());
 					vocabImport.setOwningOntology(pairsVocab);
@@ -535,7 +535,9 @@ public class Taxonomy2Oml {
 				Map<Set<String>, Boolean> dj = new HashMap<>();
 				
 				vs.forEach(v -> {
-					anc.put(v, sbcSuper.getAncestors(v));		// subclasses
+					Set<String> sc = sbcSuper.getAncestors(v);		// self + subclasses
+					sc.add(v);
+					anc.put(v, sc);
 				});
 					
 				cn.forEach(pair -> {
@@ -544,7 +546,7 @@ public class Taxonomy2Oml {
 				});
 				logger.info(dj.values().stream().filter(v -> v).toList().size() + " unsats");
 				
-				cn.stream().limit(100000).collect(Collectors.toSet()).forEach(pair -> {
+				cn.stream().limit(5000).collect(Collectors.toSet()).forEach(pair -> {
 					String pairSubclassName = Joiner.on("_")
 							.join(pair.stream()
 									.map(iri -> concepts.get(iri))
@@ -595,8 +597,8 @@ public class Taxonomy2Oml {
 	private static String makeOutputFn(String op, Path sp, Path fp) {
 		Path trail = trail(fp, sp);
 		String path = op + "/omg.org/SysML-v2/" + trail.getParent().toString();
-		String stem = trail.getFileName().toString().replaceAll("\\..*$", ".omlxmi");
-		return (path + "/" + stem).replaceAll("\\/+", "/");
+		String stem = trail.getFileName().toString().replaceAll("\\..*$", ".oml");
+		return (path + "/" + stem).replaceAll("\\/+", "/").replaceAll("\\s+", "-");
 	}
 	
 	private static String makeCatalogStartString(Path sp, Path fp) {
