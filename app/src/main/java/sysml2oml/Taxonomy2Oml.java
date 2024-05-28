@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -510,6 +512,7 @@ public class Taxonomy2Oml {
 					Import vocabImport = oml.createImport();
 					vocabImport.setKind(ImportKind.USAGE);
 					vocabImport.setNamespace(vocab.getNamespace());
+					vocabImport.setPrefix(vocab.getPrefix());
 					vocabImport.setOwningOntology(pairsVocab);
 					
 					vocab.getOwnedStatements().forEach(stmt -> {
@@ -534,16 +537,22 @@ public class Taxonomy2Oml {
 				Map<Set<Concept>, Boolean> dj = new HashMap<>();
 				cn.forEach(pair -> {
 					dj.put(pair, 
-							pair.stream().map(v -> 
-							pairsGraph.getDescendants(v)).reduce((s1, s2) -> Sets.intersection(s1,  s1)).isEmpty()
+							pair.stream()
+								.map(v -> pairsGraph.getDescendants(v))
+								.reduce((s1, s2) -> Sets.intersection(s1,  s2))
+								.isEmpty()
 							);
 				});
 				
-				cn.forEach(pair -> {
-					String pairSubclassName = Joiner.on("_").join(pair.stream().map(c -> c.getName()).toArray());
+				cn.stream().limit(200000).collect(Collectors.toSet()).forEach(pair -> {
+					Object[] pairArray = pair.toArray();
+					String pairSubclassName = Joiner.on("_")
+							.join(pair.stream()
+									.flatMap(c -> Stream.of(c.getOwningVocabulary().getPrefix(), c.getName()))
+									.toArray());
 					Concept pairSubclass = omlBuilder.addConcept(pairsVocab, pairSubclassName);
 					pair.forEach(supC -> {
-//						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), supC.getIri());
+						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), supC.getIri());
 					});
 				});
 			}
