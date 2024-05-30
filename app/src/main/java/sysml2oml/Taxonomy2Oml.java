@@ -548,7 +548,7 @@ public class Taxonomy2Oml {
 				});
 				logger.info(dj.values().stream().filter(v -> v).toList().size() + " unsats");
 				
-				cn.stream().limit(1000).collect(Collectors.toSet()).forEach(pair -> {
+				cn.stream().limit(100000).collect(Collectors.toSet()).forEach(pair -> {
 					String pairSubclassName = Joiner.on("_")
 							.join(pair.stream()
 									.map(iri -> concepts.get(iri))
@@ -556,8 +556,12 @@ public class Taxonomy2Oml {
 									.toArray());
 					Concept pairSubclass = omlBuilder.addConcept(pairsVocab, pairSubclassName);
 					pair.forEach(supC -> {
-						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), concepts.get(supC).getIri());
+						Concept sc = concepts.get(supC);
+						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), sc.getIri());
+						omlBuilder.addAnnotation(pairsVocab, pairSubclass, "http://www.w3.org/2000/01/rdf-schema#comment",
+								omlBuilder.createLiteral("specializes " + sc.getOwningVocabulary().getPrefix() + ":" + dnByConcept.get(sc)), null);
 					});
+					
 					omlBuilder.addAnnotation(pairsVocab, pairSubclass, "http://www.w3.org/2000/01/rdf-schema#comment",
 							omlBuilder.createLiteral(dj.get(pair) ? "unsatisfiable" : "satisfiable"), null);	
 				});
