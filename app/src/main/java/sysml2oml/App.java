@@ -101,9 +101,9 @@ public class App {
 			return;
 		}
 		
-		Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
+		final Logger logger = org.slf4j.LoggerFactory.getLogger(App.class);
 				
-		Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundleStem, outputPath, metaclasses, mapFile,
+		final Taxonomy2Oml taxonomy2Oml = new Taxonomy2Oml(logger, inputPaths, coreVocabsPath, bundleStem, outputPath, metaclasses, mapFile,
 				catalogPath, edgelistPath, pairsStem);
 		
         taxonomy2Oml.run();

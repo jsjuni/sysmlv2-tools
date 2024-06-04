@@ -143,12 +143,12 @@ public class Taxonomy2Oml {
 		 * Load implicit supertypes map.
 		 */
 		
-		CSVReaderHeaderAware csvReader = new CSVReaderHeaderAware(new FileReader(mapFile));
-		Map<String, String> stMap = new HashMap<>();
+		final CSVReaderHeaderAware csvReader = new CSVReaderHeaderAware(new FileReader(mapFile));
+		final Map<String, String> stMap = new HashMap<>();
 		Map <String, String> tm = new HashMap<>();
 		while ((tm = csvReader.readMap()) != null) {
-			String key = "sysml:" + tm.get("Abstract syntax");
-			String val = tm.get("Implicit subclassification to superclassifier").replaceAll("::", ":");
+			final String key = "sysml:" + tm.get("Abstract syntax");
+			final String val = tm.get("Implicit subclassification to superclassifier").replaceAll("::", ":");
 			stMap.put(key, val);
 		}
 		csvReader.close();
@@ -163,13 +163,13 @@ public class Taxonomy2Oml {
 		 * Find all XMI files in path and parse.
 		 */
 		
-		Pattern pattern = Pattern.compile(".*\\.(kermlx|sysmlx)");
-		DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+		final Pattern pattern = Pattern.compile(".*\\.(kermlx|sysmlx)");
+		final DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 
 		logger.info("load documents");
 		inputPaths.forEach(pathString -> {
 			try {
-				Path inputPath = Paths.get(pathString);
+				final Path inputPath = Paths.get(pathString);
 				Files.walk(inputPath)
 				.filter(Files::isRegularFile)
                 .filter(p -> pattern.matcher(p.getFileName().toString()).matches())
@@ -196,20 +196,20 @@ public class Taxonomy2Oml {
 						 * Find Library Package.
 						 */
 						
-						NodeList topNodes = (NodeList) topPackageXPath.evaluate(doc, XPathConstants.NODESET);
+						final NodeList topNodes = (NodeList) topPackageXPath.evaluate(doc, XPathConstants.NODESET);
 						if (topNodes.getLength() == 0) {
 							logger.error("no library package found for " + filePath);
 							throw(new RuntimeException());
 						}
-						Node topPackage = topNodes.item(0);
-						NamedNodeMap topPackageAttributes = topPackage.getAttributes();
+						final Node topPackage = topNodes.item(0);
+						final NamedNodeMap topPackageAttributes = topPackage.getAttributes();
 						
 						/*
 						 * Construct vocabulary IRI and cache it.
 						 */
 						
-						String declaredName = topPackageAttributes.getNamedItem("declaredName").getNodeValue();
-						URI iri = makeIri(dirName, declaredName);
+						final String declaredName = topPackageAttributes.getNamedItem("declaredName").getNodeValue();
+						final URI iri = makeIri(dirName, declaredName);
 						iriByDeclName.put(declaredName, iri);
 						logger.info("  document iri " + iri);
 						
@@ -217,7 +217,7 @@ public class Taxonomy2Oml {
 						 * Construct output filename and cache it.
 						 */
 						
-						String fn = makeOutputFn(outputPath, inputPath, filePath);
+						final String fn = makeOutputFn(outputPath, inputPath, filePath);
 						logger.info("  output file path " + fn);
 						outputFn.put(iri, fn);
 						
@@ -263,7 +263,7 @@ public class Taxonomy2Oml {
 		OmlXMIResourceFactory.register();
 		OmlJsonResourceFactory.register();
 		
-		ResourceSet outputResourceSet = new ResourceSetImpl();
+		final ResourceSet outputResourceSet = new ResourceSetImpl();
 		outputResourceSet.getLoadOptions().put(OmlConstants.RESOLVE_IRI_USING_RESOURCE_SET, true);
 		outputResourceSet.eAdapters().add(new ECrossReferenceAdapter());
 		
@@ -280,9 +280,9 @@ public class Taxonomy2Oml {
 		 * Load core vocabularies.
 		 */
 		
-		Pattern omlPattern = Pattern.compile(".*\\.oml");
+		final Pattern omlPattern = Pattern.compile(".*\\.oml");
 		try {
-			Path vocabsPath = Paths.get(coreVocabsPath);
+			final Path vocabsPath = Paths.get(coreVocabsPath);
 			Files.walk(vocabsPath)
 			.filter(Files::isRegularFile)
             .filter(p -> omlPattern.matcher(p.getFileName().toString()).matches())
@@ -303,8 +303,8 @@ public class Taxonomy2Oml {
 		
 		logger.info("process packages");
 		packages.forEach((iri, pkg) -> {
-			Node packageNameNode = pkg.getAttributes().getNamedItem("declaredName");
-			String packageName = packageNameNode.getNodeValue();
+			final Node packageNameNode = pkg.getAttributes().getNamedItem("declaredName");
+			final String packageName = packageNameNode.getNodeValue();
 			
 			/*
 			 * Find elements that will become concepts.
@@ -318,21 +318,21 @@ public class Taxonomy2Oml {
 				e.printStackTrace();
 			}
 			for (int i = 0; i < sbcs.getLength(); i++) {
-				Node sbc = sbcs.item(i);
-				NamedNodeMap sbcAttributes = sbc.getAttributes();
+				final Node sbc = sbcs.item(i);
+				final NamedNodeMap sbcAttributes = sbc.getAttributes();
 				
-				Node dnNode = sbcAttributes.getNamedItem("declaredName");
+				final Node dnNode = sbcAttributes.getNamedItem("declaredName");
 				if (dnNode == null) continue;
 				String dn = dnNode.getNodeValue();
 				
-				Node tpNode = sbcAttributes.getNamedItem("xsi:type");
-				String tp = tpNode.getNodeValue();
+				final Node tpNode = sbcAttributes.getNamedItem("xsi:type");
+				final String tp = tpNode.getNodeValue();
 				if (!metaclasses.contains(tp)) continue;
 				
-				Node idNode = sbcAttributes.getNamedItem("elementId");
-				String id = idNode.getNodeValue();
-				String qName = packageName + ":" + dn;
-				Map<String, String> m = new HashMap<>();
+				final Node idNode = sbcAttributes.getNamedItem("elementId");
+				final String id = idNode.getNodeValue();
+				final String qName = packageName + ":" + dn;
+				final Map<String, String> m = new HashMap<>();
 				m.put("name", dn);
 				m.put("iri", iri.toString());
 				sbcById.put(id, m);
@@ -354,7 +354,7 @@ public class Taxonomy2Oml {
 					e.printStackTrace();
 				}
 				for (int j = 0; j < supc.getLength(); j++) {
-					String supId = supc.item(j).getTextContent().replaceAll("\\A.*#", "");
+					final String supId = supc.item(j).getTextContent().replaceAll("\\A.*#", "");
 					sbcSuper.addVertex(supId);
 					sbcSuper.addEdge(id, supId);
 					logger.info("specialization " + id + " :> " + supId);
@@ -366,7 +366,7 @@ public class Taxonomy2Oml {
 
 				if (sbcSuper.outDegreeOf(id) == 0) {
 					logger.info("tp " + tp);
-					String spcType = stMap.get(tp);
+					final String spcType = stMap.get(tp);
 					if (spcType != null) {
 			            logger.info("implicit edge " + qName + " :> " + spcType);
 			            sbcImplicit.addVertex(qName);
@@ -387,7 +387,7 @@ public class Taxonomy2Oml {
 					e.printStackTrace();
 				}
 				for (int j = 0; j < djc.getLength(); j++) {
-					String djId = djc.item(j).getTextContent().replaceAll("\\A.*#", "");
+					final String djId = djc.item(j).getTextContent().replaceAll("\\A.*#", "");
 					djClass.addVertex(djId);
 					djClass.addEdge(id, djId);
 					logger.info("disjoining " + id + " " + djId);
@@ -402,15 +402,15 @@ public class Taxonomy2Oml {
 		 */
 		
 		logger.info("create vocabularies");		
-		Set<URI> outputResourceUris = new HashSet<>();
+		final Set<URI> outputResourceUris = new HashSet<>();
 		packages.forEach((iri, pkg) -> {
-			URI uri = URI.createFileURI(outputFn.get(iri));
+			final URI uri = URI.createFileURI(outputFn.get(iri));
 			outputResourceUris.add(uri);
-			String namespace = iri.toString() + "#";
-			Vocabulary v = omlBuilder.createVocabulary(uri, namespace, Paths.get(iri.toString()).getFileName().toString().toLowerCase());
+			final String namespace = iri.toString() + "#";
+			final Vocabulary v = omlBuilder.createVocabulary(uri, namespace, Paths.get(iri.toString()).getFileName().toString().toLowerCase());
 			vocabularies.put(iri, v);
 			
-			Import rdfsImport = oml.createImport();
+			final Import rdfsImport = oml.createImport();
 			rdfsImport.setKind(ImportKind.EXTENSION);
 			rdfsImport.setNamespace("http://www.w3.org/2000/01/rdf-schema#");
 			rdfsImport.setPrefix("rdfs");
@@ -422,10 +422,10 @@ public class Taxonomy2Oml {
 		 */
 	
 		sbcById.forEach((id, c) -> {
-			Vocabulary v = vocabularies.get(URI.createURI(c.get("iri")));
-			String cName = cleanIdentifier(c.get("name"));
-			Literal cLiteral = omlBuilder.createLiteral(c.get("name"));
-			Concept concept = omlBuilder.addConcept(v, cName);
+			final Vocabulary v = vocabularies.get(URI.createURI(c.get("iri")));
+			final String cName = cleanIdentifier(c.get("name"));
+			final Literal cLiteral = omlBuilder.createLiteral(c.get("name"));
+			final Concept concept = omlBuilder.addConcept(v, cName);
 			concepts.put(id, concept);
 			logger.info("concept " + cName + " label " + cLiteral.getLexicalValue() + " id " + id);
 			omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
@@ -437,8 +437,8 @@ public class Taxonomy2Oml {
 		 */
 
 		sbcImplicit.edgeSet().forEach(e -> {
-			String es = idByName.get(sbcImplicit.getEdgeSource(e));
-			String et = idByName.get(sbcImplicit.getEdgeTarget(e));
+			final String es = idByName.get(sbcImplicit.getEdgeSource(e));
+			final String et = idByName.get(sbcImplicit.getEdgeTarget(e));
 			sbcSuper.addEdge(es, et);
 		});
 			  			
@@ -449,8 +449,8 @@ public class Taxonomy2Oml {
 		Map<Vocabulary, Set<Vocabulary>> imported = new HashMap<>();
 
 		sbcSuper.edgeSet().forEach(e -> {
-			String es = sbcSuper.getEdgeSource(e);
-			String et = sbcSuper.getEdgeTarget(e);
+			final String es = sbcSuper.getEdgeSource(e);
+			final String et = sbcSuper.getEdgeTarget(e);
 			addSpecialization(concepts, es, et, omlBuilder, dnByConcept, logger, imported, false, edgelistWriter);
 		});
 			  			
@@ -461,19 +461,19 @@ public class Taxonomy2Oml {
 		 */
 
 		djClass.edgeSet().forEach(e -> {
-			String es = djClass.getEdgeSource(e);
-			String et = djClass.getEdgeTarget(e);
-			Concept dj1 = concepts.get(es);
-			Concept dj2 = concepts.get(et);
+			final String es = djClass.getEdgeSource(e);
+			final String et = djClass.getEdgeTarget(e);
+			final Concept dj1 = concepts.get(es);
+			final Concept dj2 = concepts.get(et);
 			if (dj2 != null) {
-				Vocabulary dj1Vocab = dj1.getOwningVocabulary();
-				String dj1Prefix = dj1Vocab.getPrefix();
-				Vocabulary dj2Vocab = dj2.getOwningVocabulary();
-				String dj2Prefix = dj2Vocab.getPrefix();
+				final Vocabulary dj1Vocab = dj1.getOwningVocabulary();
+				final String dj1Prefix = dj1Vocab.getPrefix();
+				final Vocabulary dj2Vocab = dj2.getOwningVocabulary();
+				final String dj2Prefix = dj2Vocab.getPrefix();
 				
 				logger.info("concept " + dj1Prefix + ":" + dj1.getName() + " disjoint from " + dj2Prefix + ":" + dj2.getName());
 
-				String dj2Name = (dj1Prefix == dj2Prefix ? "" : dj2Prefix + ":") + dnByConcept.get(dj2);
+				final String dj2Name = (dj1Prefix == dj2Prefix ? "" : dj2Prefix + ":") + dnByConcept.get(dj2);
 				omlBuilder.addAnnotation(dj1Vocab, dj1, "http://www.w3.org/2000/01/rdf-schema#comment",
 						omlBuilder.createLiteral("disjoint from " + dj2Name), null);				
 			}
@@ -484,15 +484,15 @@ public class Taxonomy2Oml {
 		 */
 		
 		if (bundleStem != null) {
-			String core = outputPath + "/" + "omg.org/SysML-v2" + "/" + bundleStem;
-			String bundlePath = core + ".omlxmi";
-			URI bundleUri = URI.createFileURI(bundlePath);
-			String bundleNamespace = "http:/" + ("/" + core.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
-			VocabularyBundle vocabBundle = omlBuilder.createVocabularyBundle(bundleUri, bundleNamespace, bundleStem);
+			final String core = outputPath + "/" + "omg.org/SysML-v2" + "/" + bundleStem;
+			final String bundlePath = core + ".omlxmi";
+			final URI bundleUri = URI.createFileURI(bundlePath);
+			final String bundleNamespace = "http:/" + ("/" + core.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
+			final VocabularyBundle vocabBundle = omlBuilder.createVocabularyBundle(bundleUri, bundleNamespace, bundleStem);
 			outputResourceUris.add(bundleUri);
 			
 			vocabularies.forEach((iri, vocab) -> {
-				Import vocabImport = oml.createImport();
+				final Import vocabImport = oml.createImport();
 				vocabImport.setKind(ImportKind.INCLUSION);
 				vocabImport.setNamespace(vocab.getNamespace());
 				vocabImport.setOwningOntology(vocabBundle);
@@ -503,21 +503,21 @@ public class Taxonomy2Oml {
 			 */
 			
 			if (pairsStem != null) {
-				String pairsCore = outputPath + "/" + "omg.org/SysML-v2" + "/" + pairsStem;
-				String pairsPath = pairsCore + ".omlxmi";
-				URI pairsUri = URI.createFileURI(pairsPath);
-				String pairsNamespace = "http:/" + ("/" + pairsCore.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
-				Vocabulary pairsVocab = omlBuilder.createVocabulary(pairsUri, pairsNamespace, pairsStem);
+				final String pairsCore = outputPath + "/" + "omg.org/SysML-v2" + "/" + pairsStem;
+				final String pairsPath = pairsCore + ".omlxmi";
+				final URI pairsUri = URI.createFileURI(pairsPath);
+				final String pairsNamespace = "http:/" + ("/" + pairsCore.replaceAll(outputPath, "")).replaceAll("\\/+", "/") + "#";
+				final Vocabulary pairsVocab = omlBuilder.createVocabulary(pairsUri, pairsNamespace, pairsStem);
 				outputResourceUris.add(pairsUri);
 
-				Import rdfsImport = oml.createImport();
+				final Import rdfsImport = oml.createImport();
 				rdfsImport.setKind(ImportKind.EXTENSION);
 				rdfsImport.setNamespace("http://www.w3.org/2000/01/rdf-schema#");
 				rdfsImport.setPrefix("rdfs");
 				rdfsImport.setOwningOntology(pairsVocab);
 
 				vocabularies.forEach((iri, vocab) -> {
-					Import vocabImport = oml.createImport();
+					final Import vocabImport = oml.createImport();
 					vocabImport.setKind(ImportKind.EXTENSION);
 					vocabImport.setNamespace(vocab.getNamespace());
 					vocabImport.setPrefix(vocab.getPrefix());
@@ -525,38 +525,38 @@ public class Taxonomy2Oml {
 					
 				});
 				
-				Set<String> vs = sbcSuper.vertexSet();
-				Set<DefaultEdge> es = sbcSuper.edgeSet();
-				Set<Set<String>> cn = Sets.combinations(vs, 2);
+				final Set<String> vs = sbcSuper.vertexSet();
+				final Set<DefaultEdge> es = sbcSuper.edgeSet();
+				final Set<Set<String>> cn = Sets.combinations(vs, 2);
 
 				logger.info(vs.size() + " pairs vertices");
 				logger.info(es.size() + " pairs edges");
 				logger.info(cn.size() + " vertex combinations");
 				
-				Map<String, Set<String>> anc = new HashMap<>();
-				Map<Set<String>, Boolean> dj = new HashMap<>();
+				final Map<String, Set<String>> anc = new HashMap<>();
+				final Map<Set<String>, Boolean> dj = new HashMap<>();
 				
 				vs.forEach(v -> {
-					Set<String> sc = sbcSuper.getAncestors(v);		// self + subclasses
+					final Set<String> sc = sbcSuper.getAncestors(v);		// self + subclasses
 					sc.add(v);
 					anc.put(v, sc);
 				});
 					
 				cn.forEach(pair -> {
-					Object[] pairArray = pair.toArray();
+					final Object[] pairArray = pair.toArray();
 					dj.put(pair, Sets.intersection(anc.get(pairArray[0]), anc.get(pairArray[1])).isEmpty());
 				});
 				logger.info(dj.values().stream().filter(v -> v).toList().size() + " unsats");
 				
 				cn.stream().limit(100000).collect(Collectors.toSet()).forEach(pair -> {
-					String pairSubclassName = Joiner.on("_")
+					final String pairSubclassName = Joiner.on("_")
 							.join(pair.stream()
 									.map(iri -> concepts.get(iri))
 									.flatMap(c -> Stream.of(c.getOwningVocabulary().getPrefix(), c.getName()))
 									.toArray());
-					Concept pairSubclass = omlBuilder.addConcept(pairsVocab, pairSubclassName);
+					final Concept pairSubclass = omlBuilder.addConcept(pairsVocab, pairSubclassName);
 					pair.forEach(supC -> {
-						Concept sc = concepts.get(supC);
+						final Concept sc = concepts.get(supC);
 						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), sc.getIri());
 						omlBuilder.addAnnotation(pairsVocab, pairSubclass, "http://www.w3.org/2000/01/rdf-schema#comment",
 								omlBuilder.createLiteral("specializes " + sc.getOwningVocabulary().getPrefix() + ":" + dnByConcept.get(sc)), null);
@@ -579,7 +579,7 @@ public class Taxonomy2Oml {
 		logger.info("save resources");
 		outputResourceUris.forEach(outputResourceUri -> {
 			logger.info("save " + outputResourceUri.toString());
-			Resource outputResource = outputResourceSet.getResource(outputResourceUri, false);
+			final Resource outputResource = outputResourceSet.getResource(outputResourceUri, false);
 			try {
 				outputResource.save(Collections.EMPTY_MAP);
 			} catch (IOException e) {
@@ -596,31 +596,31 @@ public class Taxonomy2Oml {
 	}
 	
 	private static URI makeIri(String path, String stem) {
-		String p = path.replaceAll("\\A.*/sysml.library.xmi", "http://omg.org/SysML-v2");
+		final String p = path.replaceAll("\\A.*/sysml.library.xmi", "http://omg.org/SysML-v2");
 		return URI.createURI((p + "/" + stem).replaceAll("\\s+", "-"));
 	}
 	
 	private static String makeOutputFn(String op, Path sp, Path fp) {
-		Path trail = trail(fp, sp);
-		String path = op + "/omg.org/SysML-v2/" + trail.getParent().toString();
-		String stem = trail.getFileName().toString().replaceAll("\\..*$", ".omlxmi");
+		final Path trail = trail(fp, sp);
+		final String path = op + "/omg.org/SysML-v2/" + trail.getParent().toString();
+		final String stem = trail.getFileName().toString().replaceAll("\\..*$", ".omlxmi");
 		return (path + "/" + stem).replaceAll("\\/+", "/").replaceAll("\\s+", "-");
 	}
 	
 	private static String makeCatalogStartString(Path sp, Path fp) {
-		Path trail = trail(fp, sp);
+		final Path trail = trail(fp, sp);
 		return "http://omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
 	}
 
 	private static String makeCatalogRewritePrefix(Path sp, Path fp) {
-		Path trail = trail(fp, sp);
+		final Path trail = trail(fp, sp);
 		return "omg.org/SysML-v2" + trail.getParent().toString().replaceAll("\\s+", "-").replaceAll("\\/+", "/");
 	}
 	
 	private static void createOutputCatalog(String path, Map<String, String> map) {
 		(new File(path)).mkdirs();
 		
-		String fn = path + "/" + catalogStem;
+		final String fn = path + "/" + catalogStem;
 		FileWriter writer = null;
 		try {
 			writer = new FileWriter(fn);
@@ -629,7 +629,7 @@ public class Taxonomy2Oml {
 			e.printStackTrace();
 		}
 		
-		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder builder = null;
 		try {
 			builder = factory.newDocumentBuilder();
@@ -638,21 +638,21 @@ public class Taxonomy2Oml {
 			e.printStackTrace();
 		}
 		
-		Document doc = builder.newDocument();
-		DOMSource source = new DOMSource(doc);
-		Element cat = (Element) doc.createElement("catalog");
+		final Document doc = builder.newDocument();
+		final DOMSource source = new DOMSource(doc);
+		final Element cat = (Element) doc.createElement("catalog");
 		cat.setAttribute("xmlns", "urn:oasis:names:tc:entity:xmlns:xml:catalog");
 		cat.setAttribute("prefer", "public");
 		doc.appendChild(cat);
 		
 		map.forEach((ss, rp) -> {
-			Element srw = doc.createElement("rewriteURI");
+			final Element srw = doc.createElement("rewriteURI");
 			srw.setAttribute("uriStartString", ss);
 			srw.setAttribute("rewritePrefix", rp);
 			cat.appendChild(srw);
 		});
 		
-		TransformerFactory transformerFactory = TransformerFactory.newInstance();
+		final TransformerFactory transformerFactory = TransformerFactory.newInstance();
 		Transformer transformer = null;
 		try {
 			transformer = transformerFactory.newTransformer();
@@ -662,7 +662,7 @@ public class Taxonomy2Oml {
 		}
 		transformer.setOutputProperty(OutputKeys.INDENT, "yes");
 		transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-		StreamResult result = new StreamResult(writer);
+		final StreamResult result = new StreamResult(writer);
 		try {
 			transformer.transform(source, result);
 		} catch (TransformerException e) {
@@ -685,24 +685,24 @@ public class Taxonomy2Oml {
 	private static void addSpecialization(Map<String, Concept> concepts, String es, String et, OmlBuilder omlBuilder,
 			Map<Concept, String> dnByConcept, Logger logger, Map<Vocabulary, Set<Vocabulary>> imported, boolean implicit,
 			CSVWriter edgelistWriter) {
-		Concept subC = concepts.get(es);
-		Concept supC = concepts.get(et);
+		final Concept subC = concepts.get(es);
+		final Concept supC = concepts.get(et);
 		if (supC != null) {
-			Vocabulary subVocab = subC.getOwningVocabulary();
-			String subPrefix = subVocab.getPrefix();
-			Vocabulary supVocab = supC.getOwningVocabulary();
-			String supPrefix = supVocab.getPrefix();
-			String subQName = subPrefix + ":" + dnByConcept.get(subC);
-			String supQName = supPrefix + ":" + dnByConcept.get(supC);
+			final Vocabulary subVocab = subC.getOwningVocabulary();
+			final String subPrefix = subVocab.getPrefix();
+			final Vocabulary supVocab = supC.getOwningVocabulary();
+			final String supPrefix = supVocab.getPrefix();
+			final String subQName = subPrefix + ":" + dnByConcept.get(subC);
+			final String supQName = supPrefix + ":" + dnByConcept.get(supC);
 
 			omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
 
-			String superName = (subPrefix == supPrefix ? "" : supPrefix + ":") + dnByConcept.get(supC);
+			final String superName = (subPrefix == supPrefix ? "" : supPrefix + ":") + dnByConcept.get(supC);
 			omlBuilder.addAnnotation(subVocab, subC, "http://www.w3.org/2000/01/rdf-schema#comment",
 					omlBuilder.createLiteral("specializes " + (implicit ? "(implicit) " : "") + superName), null);
 
 			if (edgelistWriter != null) {
-				String[] row = { supQName, subQName };
+				final String[] row = { supQName, subQName };
 				edgelistWriter.writeNext(row);
 			}
 			
