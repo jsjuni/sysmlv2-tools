@@ -428,7 +428,7 @@ public class Taxonomy2Oml {
 			final Concept concept = omlBuilder.addConcept(v, cName);
 			concepts.put(id, concept);
 			logger.info("concept " + cName + " label " + cLiteral.getLexicalValue() + " id " + id);
-			omlBuilder.addAnnotation(v, concept, "http://www.w3.org/2000/01/rdf-schema#label", cLiteral, null);
+			omlBuilder.addAnnotation(v, concept.getIri(), "http://www.w3.org/2000/01/rdf-schema#label", cLiteral);
 			dnByConcept.put(concept, c.get("name"));
 		});
 			
@@ -474,8 +474,8 @@ public class Taxonomy2Oml {
 				logger.info("concept " + dj1Prefix + ":" + dj1.getName() + " disjoint from " + dj2Prefix + ":" + dj2.getName());
 
 				final String dj2Name = (dj1Prefix == dj2Prefix ? "" : dj2Prefix + ":") + dnByConcept.get(dj2);
-				omlBuilder.addAnnotation(dj1Vocab, dj1, "http://www.w3.org/2000/01/rdf-schema#comment",
-						omlBuilder.createLiteral("disjoint from " + dj2Name), null);				
+				omlBuilder.addAnnotation(dj1Vocab, dj1.getIri(), "http://www.w3.org/2000/01/rdf-schema#comment",
+						omlBuilder.createLiteral("disjoint from " + dj2Name));				
 			}
 		});
 		
@@ -558,12 +558,12 @@ public class Taxonomy2Oml {
 					pair.forEach(supC -> {
 						final Concept sc = concepts.get(supC);
 						omlBuilder.addSpecializationAxiom(pairsVocab, pairSubclass.getIri(), sc.getIri());
-						omlBuilder.addAnnotation(pairsVocab, pairSubclass, "http://www.w3.org/2000/01/rdf-schema#comment",
-								omlBuilder.createLiteral("specializes " + sc.getOwningVocabulary().getPrefix() + ":" + dnByConcept.get(sc)), null);
+						omlBuilder.addAnnotation(pairsVocab, pairSubclass.getIri(), "http://www.w3.org/2000/01/rdf-schema#comment",
+								omlBuilder.createLiteral("specializes " + sc.getOwningVocabulary().getPrefix() + ":" + dnByConcept.get(sc)));
 					});
 					
-					omlBuilder.addAnnotation(pairsVocab, pairSubclass, "http://www.w3.org/2000/01/rdf-schema#comment",
-							omlBuilder.createLiteral(dj.get(pair) ? "unsatisfiable" : "satisfiable"), null);	
+					omlBuilder.addAnnotation(pairsVocab, pairSubclass.getIri(), "http://www.w3.org/2000/01/rdf-schema#comment",
+							omlBuilder.createLiteral(dj.get(pair) ? "unsatisfiable" : "satisfiable"));	
 				});
 			}
 			
@@ -698,8 +698,8 @@ public class Taxonomy2Oml {
 			omlBuilder.addSpecializationAxiom(subVocab, subC.getIri(), supC.getIri());
 
 			final String superName = (subPrefix == supPrefix ? "" : supPrefix + ":") + dnByConcept.get(supC);
-			omlBuilder.addAnnotation(subVocab, subC, "http://www.w3.org/2000/01/rdf-schema#comment",
-					omlBuilder.createLiteral("specializes " + (implicit ? "(implicit) " : "") + superName), null);
+			omlBuilder.addAnnotation(subVocab, subC.getIri(), "http://www.w3.org/2000/01/rdf-schema#comment",
+					omlBuilder.createLiteral("specializes " + (implicit ? "(implicit) " : "") + superName));
 
 			if (edgelistWriter != null) {
 				final String[] row = { supQName, subQName };
